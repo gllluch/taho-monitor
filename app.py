@@ -23,7 +23,25 @@ MAX_POINTS = 300
 last_status = None
 visits = 0
 
+def load_data():
+    global data_cache
 
+    try:
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
+
+                if isinstance(data, list):
+                    data_cache = data[-MAX_POINTS:]
+                    print(f"LOADED {len(data_cache)} points from file")
+                else:
+                    print("DATA FILE NOT LIST")
+
+        else:
+            print("DATA FILE NOT FOUND")
+
+    except Exception as e:
+        print("LOAD ERROR:", e)
 # ---------------- TELEGRAM ----------------
 def send_alert(text):
     try:
@@ -211,4 +229,5 @@ def index():
 
 
 # ---------------- START ----------------
+load_data()
 threading.Thread(target=monitor, daemon=True).start()
