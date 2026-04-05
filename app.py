@@ -127,7 +127,13 @@ def monitor():
             response = requests.get(URL, timeout=15)
 
             act_time, smev_time = parse_times(response.text)
-            extra = parse_extra(response.text)
+
+            # защищённый parse_extra
+            try:
+                extra = parse_extra(response.text)
+            except Exception as e:
+                print("EXTRA ERROR:", e)
+                extra = {"prepared": None, "smev_request": None}
 
             if act_time and smev_time:
                 status, act_delay, smev_delay = analyze(act_time, smev_time)
@@ -137,8 +143,8 @@ def monitor():
                     "act": round(act_delay, 2),
                     "smev": round(smev_delay, 2),
                     "status": status,
-                    "prepared": extra["prepared"],
-                    "smev_request": extra["smev_request"]
+                    "prepared": extra.get("prepared"),
+                    "smev_request": extra.get("smev_request")
                 }
 
                 data_cache.append(point)
@@ -146,11 +152,13 @@ def monitor():
                 if len(data_cache) > MAX_POINTS:
                     data_cache.pop(0)
 
-                save_data(point)
+                try:
+                    save_data(point)
+                except Exception as e:
+                    print("SAVE ERROR:", e)
 
                 print(point)
 
-                # Telegram только при изменении
                 if status != last_status:
                     send_alert(
                         f"{status}\n"
@@ -160,14 +168,12 @@ def monitor():
                     last_status = status
 
             else:
-                print("Ошибка парсинга")
+                print("PARSE ERROR")
 
         except Exception as e:
             print("MONITOR ERROR:", e)
 
         time.sleep(60)
-
-
 # ---------------- API ----------------
 @app.route("/data")
 def get_data():
