@@ -229,5 +229,7 @@ def index():
 
 
 # ---------------- START ----------------
+print("BOT:", BOT_TOKEN)
+print("CHAT:", CHAT_ID)
 load_data()
 threading.Thread(target=monitor, daemon=True).start()
