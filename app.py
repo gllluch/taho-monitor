@@ -56,6 +56,8 @@ def send_alert(text):
 # ---------------- SAVE ----------------
 def save_data(point):
     try:
+        tmp_file = DATA_FILE + ".tmp"
+
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, "r") as f:
                 data = json.load(f)
@@ -67,13 +69,13 @@ def save_data(point):
         if len(data) > 1000:
             data = data[-1000:]
 
-        with open(DATA_FILE, "w") as f:
+        with open(tmp_file, "w") as f:
             json.dump(data, f)
+
+        os.replace(tmp_file, DATA_FILE)
 
     except Exception as e:
         print("SAVE ERROR:", e)
-
-
 # ---------------- PARSE ----------------
 def parse_times(html):
     soup = BeautifulSoup(html, "html.parser")
