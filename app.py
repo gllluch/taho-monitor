@@ -12,7 +12,6 @@ app = Flask(__name__)
 
 URL = "https://tah-o.ru/activation/status"
 
-# 🔴 ОБЯЗАТЕЛЬНО СМЕНИ ТОКЕН (ты его уже светил)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
@@ -23,37 +22,21 @@ MAX_POINTS = 300
 last_status = None
 visits = 0
 
-def load_data():
-    global data_cache
 
-    try:
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r") as f:
-                data = json.load(f)
-
-                if isinstance(data, list):
-                    data_cache = data[-MAX_POINTS:]
-                    print(f"LOADED {len(data_cache)} points from file")
-                else:
-                    print("DATA FILE NOT LIST")
-
-        else:
-            print("DATA FILE NOT FOUND")
-
-    except Exception as e:
-        print("LOAD ERROR:", e)
 # ---------------- TELEGRAM ----------------
 def send_alert(text):
     try:
+        print("SEND TG:", text)
         requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": CHAT_ID, "text": text}
+            json={"chat_id": CHAT_ID, "text": text},
+            timeout=10
         )
     except Exception as e:
         print("Telegram error:", e)
 
 
-# ---------------- SAVE ----------------
+# ---------------- SAVE (atomic) ----------------
 def save_data(point):
     try:
         tmp_file = DATA_FILE + ".tmp"
@@ -76,6 +59,32 @@ def save_data(point):
 
     except Exception as e:
         print("SAVE ERROR:", e)
+
+
+# ---------------- LOAD ----------------
+def load_data():
+    global data_cache
+
+    try:
+        print("LOADING DATA...")
+
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
+
+                if isinstance(data, list):
+                    data_cache = data[-MAX_POINTS:]
+                    print(f"LOADED {len(data_cache)} points")
+                else:
+                    print("DATA NOT LIST")
+
+        else:
+            print("NO DATA FILE")
+
+    except Exception as e:
+        print("LOAD ERROR:", e)
+
+
 # ---------------- PARSE ----------------
 def parse_times(html):
     soup = BeautifulSoup(html, "html.parser")
@@ -138,6 +147,51 @@ def analyze(act_time, smev_time):
     return status, act_delay, smev_delay
 
 
+def analyze_history(data):
+    if not data or not isinstance(data, list):
+        return {"error": "no data"}
+
+    smev_values = []
+    act_values = []
+
+    for x in data:
+        try:
+            if "smev" in x and "act" in x:
+                smev_values.append(float(x["smev"]))
+                act_values.append(float(x["act"]))
+        except:
+            continue
+
+    if not smev_values:
+        return {"error": "no valid data"}
+
+    avg_smev = sum(smev_values) / len(smev_values)
+    max_smev = max(smev_values)
+    avg_act = sum(act_values) / len(act_values)
+
+    critical_count = len([x for x in smev_values if x > 60])
+    total = len(smev_values)
+
+    critical_percent = (critical_count / total) * 100 if total else 0
+
+    trend = "stable"
+    if len(smev_values) > 10:
+        last = smev_values[-10:]
+        if last[-1] > last[0]:
+            trend = "worsening"
+        elif last[-1] < last[0]:
+            trend = "improving"
+
+    return {
+        "avg_smev": round(avg_smev, 2),
+        "max_smev": round(max_smev, 2),
+        "avg_act": round(avg_act, 2),
+        "critical_percent": round(critical_percent, 1),
+        "trend": trend,
+        "points": len(smev_values)
+    }
+
+
 # ---------------- MONITOR ----------------
 def monitor():
     global data_cache, last_status
@@ -148,11 +202,9 @@ def monitor():
 
             act_time, smev_time = parse_times(response.text)
 
-            # защищённый parse_extra
             try:
                 extra = parse_extra(response.text)
-            except Exception as e:
-                print("EXTRA ERROR:", e)
+            except:
                 extra = {"prepared": None, "smev_request": None}
 
             if act_time and smev_time:
@@ -172,18 +224,13 @@ def monitor():
                 if len(data_cache) > MAX_POINTS:
                     data_cache.pop(0)
 
-                try:
-                    save_data(point)
-                except Exception as e:
-                    print("SAVE ERROR:", e)
+                save_data(point)
 
                 print(point)
 
                 if status != last_status:
                     send_alert(
-                        f"{status}\n"
-                        f"СМЭВ: {smev_delay:.1f} мин\n"
-                        f"Активации: {act_delay:.1f} мин"
+                        f"{status}\nСМЭВ: {smev_delay:.1f} мин\nACT: {act_delay:.1f} мин"
                     )
                     last_status = status
 
@@ -194,6 +241,8 @@ def monitor():
             print("MONITOR ERROR:", e)
 
         time.sleep(60)
+
+
 # ---------------- API ----------------
 @app.route("/data")
 def get_data():
@@ -209,21 +258,30 @@ def history():
         return []
 
 
+@app.route("/stats")
+def stats():
+    try:
+        if not os.path.exists(DATA_FILE):
+            return {"error": "file not found"}
+
+        with open(DATA_FILE, "r") as f:
+            try:
+                data = json.load(f)
+            except:
+                return {"error": "invalid json"}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+    return analyze_history(data)
+
+
 @app.route("/visits")
 def get_visits():
     global visits
     visits += 1
     return {"visits": visits}
-@app.route("/stats")
 
-def stats():
-    try:
-        with open(DATA_FILE, "r") as f:
-            data = json.load(f)
-    except:
-        data = []
-
-    return analyze_history(data)
 
 @app.route("/")
 def index():
@@ -231,7 +289,7 @@ def index():
 
 
 # ---------------- START ----------------
-print("BOT:", BOT_TOKEN)
-print("CHAT:", CHAT_ID)
-load_data()
-threading.Thread(target=monitor, daemon=True).start()
+@app.before_first_request
+def startup():
+    load_data()
+    threading.Thread(target=monitor, daemon=True).start()
