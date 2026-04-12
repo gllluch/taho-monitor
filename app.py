@@ -331,9 +331,7 @@ def get_visits():
     return {"visits": visits}
 
 
-@app.route("/")
-def index():
-    return {"status": "running", "points": len(data_cache)}
+
 
 
 # ---------------- START ----------------
