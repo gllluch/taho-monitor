@@ -136,24 +136,6 @@ def parse_extra(html):
 
 
 # ---------------- ANALYZE ----------------
-def analyze(act_time, smev_time):
-    now = datetime.now()
-
-    act_delay = (now - act_time).total_seconds() / 60
-    smev_delay = (now - smev_time).total_seconds() / 60
-
-    status = "OK"
-
-    if smev_delay > 60:
-        status = "SMEV_CRITICAL"
-    elif smev_delay > 30:
-        status = "SMEV_SLOW"
-    elif act_delay > 20:
-        status = "ACTIVATION_DELAY"
-
-    return status, act_delay, smev_delay
-
-
 def analyze_history(data):
     if not data or not isinstance(data, list):
         return {"error": "no data"}
@@ -172,15 +154,21 @@ def analyze_history(data):
     if not smev_values:
         return {"error": "no valid data"}
 
+    # --- SMEV ---
     avg_smev = sum(smev_values) / len(smev_values)
     max_smev = max(smev_values)
+
+    smev_critical = len([x for x in smev_values if x > 60])
+    smev_percent = (smev_critical / len(smev_values)) * 100
+
+    # --- ACTIVATION ---
     avg_act = sum(act_values) / len(act_values)
+    max_act = max(act_values)
 
-    critical_count = len([x for x in smev_values if x > 60])
-    total = len(smev_values)
+    act_slow = len([x for x in act_values if x > 10])
+    act_percent = (act_slow / len(act_values)) * 100
 
-    critical_percent = (critical_count / total) * 100 if total else 0
-
+    # --- TREND ---
     trend = "stable"
     if len(smev_values) > 10:
         last = smev_values[-10:]
@@ -189,15 +177,30 @@ def analyze_history(data):
         elif last[-1] < last[0]:
             trend = "improving"
 
+    # --- ACT TREND ---
+    act_trend = "stable"
+    if len(act_values) > 10:
+        last = act_values[-10:]
+        if last[-1] > last[0]:
+            act_trend = "worsening"
+        elif last[-1] < last[0]:
+            act_trend = "improving"
+
     return {
+        "points": len(smev_values),
+
+        # SMEV
         "avg_smev": round(avg_smev, 2),
         "max_smev": round(max_smev, 2),
-        "avg_act": round(avg_act, 2),
-        "critical_percent": round(critical_percent, 1),
-        "trend": trend,
-        "points": len(smev_values)
-    }
+        "smev_critical_percent": round(smev_percent, 1),
+        "smev_trend": trend,
 
+        # ACTIVATION
+        "avg_act": round(avg_act, 2),
+        "max_act": round(max_act, 2),
+        "act_slow_percent": round(act_percent, 1),
+        "act_trend": act_trend
+    }
 
 # ---------------- MONITOR ----------------
 def monitor():
