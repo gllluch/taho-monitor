@@ -12,8 +12,11 @@ app = Flask(__name__)
 
 URL = "https://tah-o.ru/activation/status"
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+def get_bot_token():
+    return os.getenv("BOT_TOKEN")
+
+def get_chat_id():
+    return os.getenv("CHAT_ID")
 
 DATA_FILE = "/opt/taho-monitor/data.json"
 
@@ -25,13 +28,15 @@ visits = 0
 
 # ---------------- TELEGRAM ----------------
 def send_alert(text):
-print("BOT_TOKEN runtime:", os.getenv("BOT_TOKEN"))
-print("CHAT_ID runtime:", os.getenv("CHAT_ID"))
     try:
-        print("SEND TG:", text)
+        token = get_bot_token()
+        chat_id = get_chat_id()
+
+        print("SEND TG:", token, chat_id)
+
         requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": CHAT_ID, "text": text},
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
             timeout=10
         )
     except Exception as e:
@@ -197,7 +202,7 @@ def analyze_history(data):
 # ---------------- MONITOR ----------------
 def monitor():
     global data_cache, last_status
-
+send_alert("TEST MESSAGE")
     while True:
         try:
             response = requests.get(URL, timeout=15)
