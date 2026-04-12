@@ -202,7 +202,7 @@ def analyze_history(data):
 # ---------------- MONITOR ----------------
 def monitor():
     global data_cache, last_status
-send_alert("TEST MESSAGE")
+
     while True:
         try:
             response = requests.get(URL, timeout=15)
@@ -248,7 +248,7 @@ send_alert("TEST MESSAGE")
             print("MONITOR ERROR:", e)
 
         time.sleep(60)
-
+send_alert("TEST MESSAGE")
 
 # ---------------- API ----------------
 @app.route("/data")
