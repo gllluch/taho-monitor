@@ -136,6 +136,23 @@ def parse_extra(html):
 
 
 # ---------------- ANALYZE ----------------
+def analyze(act_time, smev_time):
+    now = datetime.now()
+
+    act_delay = (now - act_time).total_seconds() / 60
+    smev_delay = (now - smev_time).total_seconds() / 60
+
+    status = "OK"
+
+    if smev_delay > 60:
+        status = "SMEV_CRITICAL"
+    elif smev_delay > 30:
+        status = "SMEV_SLOW"
+    elif act_delay > 20:
+        status = "ACTIVATION_DELAY"
+
+    return status, act_delay, smev_delay
+    
 def analyze_history(data):
     if not data or not isinstance(data, list):
         return {"error": "no data"}
