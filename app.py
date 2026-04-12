@@ -25,6 +25,8 @@ visits = 0
 
 # ---------------- TELEGRAM ----------------
 def send_alert(text):
+print("BOT_TOKEN runtime:", os.getenv("BOT_TOKEN"))
+print("CHAT_ID runtime:", os.getenv("CHAT_ID"))
     try:
         print("SEND TG:", text)
         requests.post(
