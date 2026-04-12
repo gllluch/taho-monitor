@@ -127,27 +127,23 @@ async function load() {
 }
 //Статистика
 
-async function loadStats() {
-    const res = await fetch('/stats');
-    const s = await res.json();
+document.getElementById('stats').innerHTML = `
+<div style="display:flex; gap:40px; margin-top:10px;">
 
-    document.getElementById('stats').innerHTML = `
-        <b>Аналитика:</b><br><br>
-
-        <b>СМЭВ:</b><br>
+    <div>
+        <b>СМЭВ</b><br>
         Средний: ${s.avg_smev} мин<br>
-        Макс: ${s.max_smev} мин<br>
-        Критика: ${s.smev_critical_percent}%<br>
-        Тренд: ${s.smev_trend}<br><br>
+        Макс: ${s.max_smev} мин
+    </div>
 
-        <b>Активации:</b><br>
+    <div>
+        <b>Активации</b><br>
         Средний: ${s.avg_act} мин<br>
-        Макс: ${s.max_act} мин<br>
-        Деградация: ${s.act_slow_percent}%<br>
-        Тренд: ${s.act_trend}<br><br>
+        Макс: ${s.max_act} мин
+    </div>
 
-        Точек: ${s.points}
-    `;
+</div>
+`;
 }
 
 // счетчик посещений
