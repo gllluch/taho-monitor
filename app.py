@@ -157,19 +157,35 @@ def analyze_history(data):
     if not data or not isinstance(data, list):
         return {"error": "no data"}
 
-    smev_values = []
-    act_values = []
+    now = datetime.now()
+
+    last_hour = []
 
     for x in data:
         try:
-            if "smev" in x and "act" in x:
-                smev_values.append(float(x["smev"]))
-                act_values.append(float(x["act"]))
+            t = datetime.strptime(x["time"], "%H:%M")
+            t = t.replace(year=now.year, month=now.month, day=now.day)
+
+            if (now - t).total_seconds() <= 3600:
+                last_hour.append(x)
         except:
             continue
 
-    if not smev_values:
-        return {"error": "no valid data"}
+    if not last_hour:
+        return {"error": "no recent data"}
+
+    smev = [x["smev"] for x in last_hour if "smev" in x]
+    act = [x["act"] for x in last_hour if "act" in x]
+
+    return {
+        "points": len(last_hour),
+
+        "avg_smev": round(sum(smev)/len(smev), 2) if smev else 0,
+        "max_smev": round(max(smev), 2) if smev else 0,
+
+        "avg_act": round(sum(act)/len(act), 2) if act else 0,
+        "max_act": round(max(act), 2) if act else 0
+    }
 
     # --- SMEV ---
     avg_smev = sum(smev_values) / len(smev_values)
