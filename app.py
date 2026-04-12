@@ -25,6 +25,11 @@ MAX_POINTS = 300
 last_status = None
 visits = 0
 
+from flask import send_from_directory
+
+@app.route("/")
+def index():
+    return send_from_directory("/opt/taho-monitor", "index.html")
 
 # ---------------- TELEGRAM ----------------
 def send_alert(text):
