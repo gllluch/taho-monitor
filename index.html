@@ -32,7 +32,30 @@ function getColor(value) {
     if (value > 30) return 'orange';
     return 'green';
 }
+async function loadStats() {
+    try {
+        const res = await fetch('/stats');
+        const s = await res.json();   // ← ВАЖНО
 
+        document.getElementById('stats').innerHTML = `
+            <div style="display:flex; gap:40px; margin-top:10px;">
+                <div>
+                    <b>СМЭВ</b><br>
+                    Средний: ${s.avg_smev} мин<br>
+                    Макс: ${s.max_smev} мин
+                </div>
+
+                <div>
+                    <b>Активации</b><br>
+                    Средний: ${s.avg_act} мин<br>
+                    Макс: ${s.max_act} мин
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        console.log("STATS ERROR", e);
+    }
+}
 async function load() {
     try {
         const res = await fetch('/data');
