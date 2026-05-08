@@ -122,7 +122,24 @@ async function load() {
         if (!data || data.length === 0) return;
 
         const labels = data.map(x => {
-            const d = new Date(x.time);
+
+    // старый формат HH:MM
+    if (typeof x.time === 'string' && x.time.length <= 5) {
+        return x.time;
+    }
+
+    // новый ISO формат
+    const d = new Date(x.time);
+
+    if (isNaN(d.getTime())) {
+        return "??";
+    }
+
+    return d.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+});
 
    
         const smev = data.map(x => x.smev);
