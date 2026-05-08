@@ -121,7 +121,10 @@ async function load() {
 
         if (!data || data.length === 0) return;
 
-        const labels = data.map(x => x.time);
+        const labels = data.map(x => {
+            const d = new Date(x.time);
+
+   
         const smev = data.map(x => x.smev);
         const act = data.map(x => x.act);
 
