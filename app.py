@@ -19,12 +19,19 @@ DATA_FILE = "/opt/taho-monitor/data.json"
 
 data_cache = []
 MAX_POINTS = 300
+
 last_status = None
 visits = 0
 
 # fallback значения
 last_act_time = None
 last_smev_time = None
+
+# сырые данные источника
+raw_status = {
+    "activation": "нет данных",
+    "smev": "нет данных"
+}
 
 
 # ---------------- TELEGRAM ----------------
@@ -35,9 +42,13 @@ def send_alert(text):
 
         requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={"chat_id": CHAT_ID, "text": text},
+            json={
+                "chat_id": CHAT_ID,
+                "text": text
+            },
             timeout=10
         )
+
     except Exception as e:
         print("Telegram error:", e)
 
@@ -85,19 +96,23 @@ def load_data():
                 if isinstance(data, list):
                     data_cache = data[-MAX_POINTS:]
                     print("LOADED:", len(data_cache))
+
     except Exception as e:
         print("LOAD ERROR:", e)
 
 
 # ---------------- PARSE ----------------
 def parse_times(html):
+    global raw_status
+
     soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text()
+    text = soup.get_text(" ", strip=True)
 
     act_match = re.search(
         r"Последняя завершённая активизация.*?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",
         text
     )
+
     smev_match = re.search(
         r"Последний ответ СМЭВ.*?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",
         text
@@ -106,11 +121,21 @@ def parse_times(html):
     act_time = None
     smev_time = None
 
+    act_raw = "нет данных"
+    smev_raw = "нет данных"
+
     if act_match:
-        act_time = datetime.strptime(act_match.group(1), "%Y-%m-%d %H:%M:%S")
+        act_raw = act_match.group(1)
+        act_time = datetime.strptime(act_raw, "%Y-%m-%d %H:%M:%S")
 
     if smev_match:
-        smev_time = datetime.strptime(smev_match.group(1), "%Y-%m-%d %H:%M:%S")
+        smev_raw = smev_match.group(1)
+        smev_time = datetime.strptime(smev_raw, "%Y-%m-%d %H:%M:%S")
+
+    raw_status = {
+        "activation": act_raw,
+        "smev": smev_raw
+    }
 
     return act_time, smev_time
 
@@ -134,7 +159,7 @@ def analyze(act_time, smev_time):
     return status, act_delay, smev_delay
 
 
-# ---------------- STATS (ПОСЛЕДНИЙ ЧАС) ----------------
+# ---------------- STATS ----------------
 def analyze_history(data):
     if not data:
         return {"error": "no data"}
@@ -145,10 +170,15 @@ def analyze_history(data):
     for x in data:
         try:
             t = datetime.strptime(x["time"], "%H:%M")
-            t = t.replace(year=now.year, month=now.month, day=now.day)
+            t = t.replace(
+                year=now.year,
+                month=now.month,
+                day=now.day
+            )
 
             if (now - t).total_seconds() <= 3600:
                 last_hour.append(x)
+
         except:
             continue
 
@@ -160,16 +190,21 @@ def analyze_history(data):
 
     return {
         "points": len(last_hour),
-        "avg_smev": round(sum(smev)/len(smev), 2),
+
+        "avg_smev": round(sum(smev) / len(smev), 2),
         "max_smev": round(max(smev), 2),
-        "avg_act": round(sum(act)/len(act), 2),
+
+        "avg_act": round(sum(act) / len(act), 2),
         "max_act": round(max(act), 2)
     }
 
 
 # ---------------- MONITOR ----------------
 def monitor():
-    global data_cache, last_status, last_act_time, last_smev_time
+    global data_cache
+    global last_status
+    global last_act_time
+    global last_smev_time
 
     while True:
         try:
@@ -192,7 +227,10 @@ def monitor():
                 time.sleep(60)
                 continue
 
-            status, act_delay, smev_delay = analyze(act_time, smev_time)
+            status, act_delay, smev_delay = analyze(
+                act_time,
+                smev_time
+            )
 
             point = {
                 "time": datetime.now().strftime("%H:%M"),
@@ -211,7 +249,11 @@ def monitor():
             print(point)
 
             if status != last_status:
-                send_alert(f"{status}\nСМЭВ: {smev_delay:.1f} мин")
+                send_alert(
+                    f"{status}\n"
+                    f"СМЭВ: {smev_delay:.1f} мин"
+                )
+
                 last_status = status
 
         except Exception as e:
@@ -220,10 +262,13 @@ def monitor():
         time.sleep(60)
 
 
-# ---------------- API ----------------
+# ---------------- ROUTES ----------------
 @app.route("/")
 def index():
-    return send_from_directory("/opt/taho-monitor", "index.html")
+    return send_from_directory(
+        "/opt/taho-monitor",
+        "index.html"
+    )
 
 
 @app.route("/data")
@@ -239,19 +284,31 @@ def stats():
 
         with open(DATA_FILE, "r") as f:
             data = json.load(f)
+
     except:
         return {"error": "bad file"}
 
     return analyze_history(data)
 
 
+@app.route("/raw")
+def raw():
+    return jsonify(raw_status)
+
+
 @app.route("/visits")
 def get_visits():
     global visits
+
     visits += 1
+
     return {"visits": visits}
 
 
 # ---------------- START ----------------
 load_data()
-threading.Thread(target=monitor, daemon=True).start()
+
+threading.Thread(
+    target=monitor,
+    daemon=True
+).start()
