@@ -233,7 +233,7 @@ def monitor():
             )
 
             point = {
-                "time": datetime.now().strftime("%H:%M"),
+                "time": datetime.utcnow().isoformat(),
                 "act": round(act_delay, 2),
                 "smev": round(smev_delay, 2),
                 "status": status
