@@ -161,23 +161,28 @@ def analyze(act_time, smev_time):
 
 # ---------------- STATS ----------------
 def analyze_history(data):
+    if def analyze_history(data):
+
     if not data:
         return {"error": "no data"}
 
-    now = datetime.now()
+    now = datetime.utcnow()
+
     last_hour = []
 
     for x in data:
-    try:
-        t = datetime.fromisoformat(
-            x["time"].replace("Z", "+00:00")
-        ).replace(tzinfo=None)
 
-        if (now - t).total_seconds() <= 3600:
-            last_hour.append(x)
+        try:
 
-    except:
-        continue
+            t = datetime.fromisoformat(
+                x["time"].replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+
+            if (now - t).total_seconds() <= 3600:
+                last_hour.append(x)
+
+        except:
+            continue
 
     if not last_hour:
         return {"error": "no recent data"}
@@ -194,7 +199,6 @@ def analyze_history(data):
         "avg_act": round(sum(act) / len(act), 2),
         "max_act": round(max(act), 2)
     }
-
 
 # ---------------- MONITOR ----------------
 def monitor():
