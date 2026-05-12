@@ -169,12 +169,9 @@ def analyze_history(data):
 
     for x in data:
         try:
-            t = datetime.strptime(x["time"], "%H:%M")
-            t = t.replace(
-                year=now.year,
-                month=now.month,
-                day=now.day
-            )
+           t = datetime.fromisoformat(
+            x["time"].replace("Z", "+00:00")
+        ).replace(tzinfo=None)
 
             if (now - t).total_seconds() <= 3600:
                 last_hour.append(x)
