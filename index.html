@@ -90,26 +90,51 @@ async function loadStats() {
 
 // ---------------- RAW ----------------
 async function loadRaw() {
+
     try {
 
         const res = await fetch('/raw');
         const r = await res.json();
 
+        function convertTime(str) {
+
+            if (!str || str === "нет данных") {
+                return str;
+            }
+
+            // "2026-04-12 15:40:00"
+            const iso = str.replace(' ', 'T') + '+03:00';
+
+            const d = new Date(iso);
+
+            if (isNaN(d.getTime())) {
+                return str;
+            }
+
+            return d.toLocaleString([], {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
         document.getElementById('raw').innerHTML = `
             <b>Данные источника:</b><br><br>
 
-            Последняя активизация:
-            ${r.activation}<br><br>
+            Последняя активизация:<br>
+            ${convertTime(r.activation)}<br><br>
 
-            Последний ответ СМЭВ:
-            ${r.smev}
+            Последний ответ СМЭВ:<br>
+            ${convertTime(r.smev)}
         `;
 
     } catch(e) {
         console.log("RAW ERROR", e);
     }
 }
-
 
 // ---------------- MAIN GRAPH ----------------
 async function load() {
