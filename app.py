@@ -30,7 +30,8 @@ last_smev_time = None
 # сырые данные источника
 raw_status = {
     "activation": "нет данных",
-    "smev": "нет данных"
+    "smev": "нет данных",
+    "users": 0
 }
 
 
@@ -103,6 +104,7 @@ def load_data():
 
 # ---------------- PARSE ----------------
 def parse_times(html):
+
     global raw_status
 
     soup = BeautifulSoup(html, "html.parser")
@@ -118,28 +120,47 @@ def parse_times(html):
         text
     )
 
+    users_match = re.search(
+        r"(?:высокая|средняя|низкая)\s*\((\d+)/\d+\)",
+        text,
+        re.IGNORECASE
+    )
+
     act_time = None
     smev_time = None
 
     act_raw = "нет данных"
     smev_raw = "нет данных"
 
+    users = 0
+
     if act_match:
         act_raw = act_match.group(1)
-        act_time = datetime.strptime(act_raw, "%Y-%m-%d %H:%M:%S")
+
+        act_time = datetime.strptime(
+            act_raw,
+            "%Y-%m-%d %H:%M:%S"
+        )
 
     if smev_match:
         smev_raw = smev_match.group(1)
-        smev_time = datetime.strptime(smev_raw, "%Y-%m-%d %H:%M:%S")
+
+        smev_time = datetime.strptime(
+            smev_raw,
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+    if users_match:
+        users = int(users_match.group(1))
 
     raw_status = {
         "activation": act_raw,
-        "smev": smev_raw
+        "smev": smev_raw,
+        "users": users
     }
 
-    return act_time, smev_time
-
-
+    return act_time, smev_time, users
+    
 # ---------------- ANALYZE ----------------
 def analyze(act_time, smev_time):
     now = datetime.now()
@@ -211,8 +232,8 @@ def monitor():
         try:
             response = requests.get(URL, timeout=15)
 
-            act_new, smev_new = parse_times(response.text)
-
+            act_new, smev_new, users = parse_times(response.text)
+            
             # fallback логика
             if act_new:
                 last_act_time = act_new
@@ -237,6 +258,7 @@ def monitor():
                 "time": datetime.utcnow().isoformat() + "Z",
                 "act": round(act_delay, 2),
                 "smev": round(smev_delay, 2),
+                "users": users,
                 "status": status
             }
 
