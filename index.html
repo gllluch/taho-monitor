@@ -35,7 +35,17 @@
 ">
     <canvas id="chart"></canvas>
 </div>
-    
+<h3 style="margin-top:30px;">
+    Активность пользователей Tah-O
+</h3>
+
+<div style="
+    position: relative;
+    height: 25vh;
+    width: 100%;
+">
+    <canvas id="usersChart"></canvas>
+</div>    
 <!-- visits -->
 <div id="visits" style="
     position:fixed;
@@ -50,7 +60,8 @@
 <script>
 
 let chart;
-
+let usersChart;
+    
 function getColor(value) {
     if (value > 60) return 'red';
     if (value > 30) return 'orange';
@@ -262,7 +273,71 @@ async function load() {
     }
 }
 
+//-----------------Users GRAPH---------------
+    async function loadUsersGraph() {
 
+    try {
+
+        const res = await fetch('/data');
+        const data = await res.json();
+
+        const labels = data.map(x => {
+
+            if (typeof x.time === 'string' && x.time.length <= 5) {
+                return x.time;
+            }
+
+            const d = new Date(x.time);
+
+            return d.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+        });
+
+        const users = data.map(x => x.users || 0);
+
+        if (usersChart) {
+
+            usersChart.data.labels = labels;
+            usersChart.data.datasets[0].data = users;
+
+            usersChart.update();
+
+            return;
+        }
+
+        usersChart = new Chart(
+            document.getElementById('usersChart'),
+            {
+                type: 'line',
+
+                data: {
+                    labels: labels,
+
+                    datasets: [
+                        {
+                            label: 'Активность пользователей',
+                            data: users,
+                            borderWidth: 2,
+                            tension: 0.2
+                        }
+                    ]
+                },
+
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false
+                }
+            }
+        );
+
+    } catch(e) {
+        console.log("USERS GRAPH ERROR", e);
+    }
+}
 // ---------------- VISITS ----------------
 async function loadVisits() {
 
@@ -282,7 +357,9 @@ async function loadVisits() {
 setInterval(load, 10000);
 setInterval(loadStats, 30000);
 setInterval(loadRaw, 10000);
+setInterval(loadUsersGraph, 10000);
 
+loadUsersGraph();
 load();
 loadStats();
 loadRaw();
