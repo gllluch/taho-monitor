@@ -197,7 +197,7 @@ def analyze_history(data):
 
             t = datetime.strptime(
                 x["time"],
-            "%Y-%m-%dT%H:%M:%S.%fZ"
+                "%Y-%m-%dT%H:%M:%S.%fZ"
             )
 
             if (now - t).total_seconds() <= 3600:
@@ -212,24 +212,24 @@ def analyze_history(data):
     smev = [x["smev"] for x in last_hour]
     act = [x["act"] for x in last_hour]
 
-   all_users = [
-    x.get("users", 0)
-    for x in data
-]
+    all_users = [
+        x.get("users", 0)
+        for x in data
+    ]
 
-max_users = max(all_users) if all_users else 0
+    max_users = max(all_users) if all_users else 0
 
-return {
-    "points": len(last_hour),
+    return {
+        "points": len(last_hour),
 
-    "avg_smev": round(sum(smev) / len(smev), 2),
-    "max_smev": round(max(smev), 2),
+        "avg_smev": round(sum(smev) / len(smev), 2),
+        "max_smev": round(max(smev), 2),
 
-    "avg_act": round(sum(act) / len(act), 2),
-    "max_act": round(max(act), 2),
+        "avg_act": round(sum(act) / len(act), 2),
+        "max_act": round(max(act), 2),
 
-    "max_users": max_users
-}
+        "max_users": max_users
+    }
 # ---------------- MONITOR ----------------
 def monitor():
     global data_cache
