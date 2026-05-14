@@ -212,15 +212,24 @@ def analyze_history(data):
     smev = [x["smev"] for x in last_hour]
     act = [x["act"] for x in last_hour]
 
-    return {
-        "points": len(last_hour),
+   all_users = [
+    x.get("users", 0)
+    for x in data
+]
 
-        "avg_smev": round(sum(smev) / len(smev), 2),
-        "max_smev": round(max(smev), 2),
+max_users = max(all_users) if all_users else 0
 
-        "avg_act": round(sum(act) / len(act), 2),
-        "max_act": round(max(act), 2)
-    }
+return {
+    "points": len(last_hour),
+
+    "avg_smev": round(sum(smev) / len(smev), 2),
+    "max_smev": round(max(smev), 2),
+
+    "avg_act": round(sum(act) / len(act), 2),
+    "max_act": round(max(act), 2),
+
+    "max_users": max_users
+}
 # ---------------- MONITOR ----------------
 def monitor():
     global data_cache
