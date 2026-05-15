@@ -76,6 +76,17 @@ async function loadStats() {
 
         const res = await fetch('/stats');
         const s = await res.json();
+        const dataRes = await fetch('/data');
+        const data = await dataRes.json();
+
+        const lastUsers =
+            const lastUsersAvg =
+                data.length
+                    ? (data[data.length - 1].users_avg || 0)
+                    : 0;
+            data.length
+                ? (data[data.length - 1].users || 0)
+                : 0;
 
         document.getElementById('stats').innerHTML = `
             <div style="
@@ -97,6 +108,7 @@ async function loadStats() {
                 </div>
                     <div>
                     <b>Пользователи</b><br>
+                    Сейчас: ${lastUsers} / ${lastUsersAvg} 
                     Рекорд: ${s.max_users}
                 </div>
             </div>
