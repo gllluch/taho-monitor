@@ -108,9 +108,20 @@ async function loadStats() {
                     Макс: ${s.max_act} мин
                 </div>
                     <div>
-                    <b>Пользователи</b><br>
-                    Сейчас: ${lastUsers} / ${lastUsersAvg} <br>
-                    Рекорд: ${s.max_users}
+                    <div>
+                        <b>Пользователи</b><br>
+                    
+                        Сейчас:
+                        ${lastUsers} / ${lastUsersAvg}<br><br>
+                    
+                        Рекорд суток:<br>
+                        ${s.day_record?.users || 0}
+                        (${s.day_record?.time || '-'})<br><br>
+                    
+                        Рекорд за всё время:<br>
+                        ${s.all_time_record?.users || 0}
+                        (${s.all_time_record?.time || '-'})
+                    </div>
                 </div>
             </div>
         `;
