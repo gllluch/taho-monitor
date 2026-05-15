@@ -109,7 +109,7 @@ async function loadStats() {
                 </div>
                     <div>
                     <b>Пользователи</b><br>
-                    Сейчас: ${lastUsers} / ${lastUsersAvg} 
+                    Сейчас: ${lastUsers} / ${lastUsersAvg} <br>
                     Рекорд: ${s.max_users}
                 </div>
             </div>
@@ -313,11 +313,13 @@ async function load() {
         });
 
         const users = data.map(x => x.users || 0);
+        const usersAvg = data.map(x => x.users_avg || 0);
 
         if (usersChart) {
 
             usersChart.data.labels = labels;
             usersChart.data.datasets[0].data = users;
+            usersChart.data.datasets[1].data = usersAvg;
 
             usersChart.update();
 
@@ -334,11 +336,20 @@ async function load() {
 
                     datasets: [
                         {
-                            label: 'Активность пользователей',
+                            label: 'Текущая активность',
                             data: users,
                             borderWidth: 2,
                             tension: 0.2
+                        },
+                    
+                        {
+                            label: 'Средняя активность',
+                            data: usersAvg,
+                            borderDash: [5,5],
+                            borderWidth: 2,
+                            tension: 0.2
                         }
+                    ]
                     ]
                 },
 
