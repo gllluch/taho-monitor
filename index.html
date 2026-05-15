@@ -79,13 +79,14 @@ async function loadStats() {
         const dataRes = await fetch('/data');
         const data = await dataRes.json();
 
-        const lastUsers =
-            const lastUsersAvg =
-                data.length
-                    ? (data[data.length - 1].users_avg || 0)
-                    : 0;
+       const lastUsers =
             data.length
                 ? (data[data.length - 1].users || 0)
+                : 0;
+
+        const lastUsersAvg =
+            data.length
+                ? (data[data.length - 1].users_avg || 0)
                 : 0;
 
         document.getElementById('stats').innerHTML = `
