@@ -184,7 +184,7 @@ def analyze(act_time, smev_time):
     return status, act_delay, smev_delay
 
 
-# ---------------- STATS ----------------
+
 # ---------------- STATS ----------------
 def analyze_history(data):
 
@@ -216,48 +216,49 @@ def analyze_history(data):
     smev = [x["smev"] for x in last_hour]
     act = [x["act"] for x in last_hour]
 
+    # рекорды users
     all_time_record = None
-day_record = None
+    day_record = None
 
-today = now.date()
+    today = now.date()
 
-for x in data:
+    for x in data:
 
-    try:
+        try:
 
-        t = datetime.strptime(
-            x["time"],
-            "%Y-%m-%dT%H:%M:%S.%fZ"
-        )
+            t = datetime.strptime(
+                x["time"],
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
 
-        users = x.get("users", 0)
+            users = x.get("users", 0)
 
-        # рекорд за всё время
-        if (
-            all_time_record is None or
-            users > all_time_record["users"]
-        ):
-
-            all_time_record = {
-                "users": users,
-                "time": t.strftime("%Y-%m-%d %H:%M")
-            }
-
-        # рекорд за сутки
-        if t.date() == today:
-
+            # рекорд за всё время
             if (
-                day_record is None or
-                users > day_record["users"]
+                all_time_record is None or
+                users > all_time_record["users"]
             ):
 
-                day_record = {
+                all_time_record = {
                     "users": users,
-                    "time": t.strftime("%H:%M")
+                    "time": t.strftime("%Y-%m-%d %H:%M")
                 }
 
-    except:
-        continue
+            # рекорд за сутки
+            if t.date() == today:
+
+                if (
+                    day_record is None or
+                    users > day_record["users"]
+                ):
+
+                    day_record = {
+                        "users": users,
+                        "time": t.strftime("%H:%M")
+                    }
+
+        except:
+            continue
 
     return {
         "points": len(last_hour),
@@ -271,6 +272,7 @@ for x in data:
         "all_time_record": all_time_record,
         "day_record": day_record
     }
+
 # ---------------- MONITOR ----------------
 def monitor():
     global data_cache
