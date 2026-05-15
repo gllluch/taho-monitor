@@ -31,7 +31,8 @@ last_smev_time = None
 raw_status = {
     "activation": "нет данных",
     "smev": "нет данных",
-    "users": 0
+    "users": 0,
+    "users_avg": 0
 }
 
 
@@ -121,9 +122,10 @@ def parse_times(html):
     )
 
     users_match = re.search(
-        r"(?:высокая|средняя|низкая)\s*\((\d+)/\d+\)",
+        r"(?:высокая|средняя|низкая)\s*\((\d+)/(\d+)\)",
         text,
         re.IGNORECASE
+    )
     )
 
     act_time = None
@@ -132,7 +134,8 @@ def parse_times(html):
     act_raw = "нет данных"
     smev_raw = "нет данных"
 
-    users = 0
+    users = 0 
+    users_avg = 0
 
     if act_match:
         act_raw = act_match.group(1)
@@ -152,14 +155,16 @@ def parse_times(html):
 
     if users_match:
         users = int(users_match.group(1))
-
+        users_avg = int(users_match.group(2))
+        
     raw_status = {
         "activation": act_raw,
         "smev": smev_raw,
-        "users": users
+        "users": users, 
+        "users_avg": users_avg
     }
 
-    return act_time, smev_time, users
+    return act_time, smev_time, users, users_avg
     
 # ---------------- ANALYZE ----------------
 def analyze(act_time, smev_time):
@@ -241,7 +246,7 @@ def monitor():
         try:
             response = requests.get(URL, timeout=15)
 
-            act_new, smev_new, users = parse_times(response.text)
+            act_new, smev_new, users, users_avg = parse_times(response.text)
             
             # fallback логика
             if act_new:
@@ -268,6 +273,7 @@ def monitor():
                 "act": round(act_delay, 2),
                 "smev": round(smev_delay, 2),
                 "users": users,
+                "users_avg": users_avg,
                 "status": status
             }
 
