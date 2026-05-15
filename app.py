@@ -216,12 +216,48 @@ def analyze_history(data):
     smev = [x["smev"] for x in last_hour]
     act = [x["act"] for x in last_hour]
 
-    all_users = [
-        x.get("users", 0)
-        for x in data
-    ]
+    all_time_record = None
+day_record = None
 
-    max_users = max(all_users) if all_users else 0
+today = now.date()
+
+for x in data:
+
+    try:
+
+        t = datetime.strptime(
+            x["time"],
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+
+        users = x.get("users", 0)
+
+        # рекорд за всё время
+        if (
+            all_time_record is None or
+            users > all_time_record["users"]
+        ):
+
+            all_time_record = {
+                "users": users,
+                "time": t.strftime("%Y-%m-%d %H:%M")
+            }
+
+        # рекорд за сутки
+        if t.date() == today:
+
+            if (
+                day_record is None or
+                users > day_record["users"]
+            ):
+
+                day_record = {
+                    "users": users,
+                    "time": t.strftime("%H:%M")
+                }
+
+    except:
+        continue
 
     return {
         "points": len(last_hour),
@@ -232,7 +268,8 @@ def analyze_history(data):
         "avg_act": round(sum(act) / len(act), 2),
         "max_act": round(max(act), 2),
 
-        "max_users": max_users
+        "all_time_record": all_time_record,
+        "day_record": day_record
     }
 # ---------------- MONITOR ----------------
 def monitor():
