@@ -122,10 +122,9 @@ def parse_times(html):
     )
 
     users_match = re.search(
-        r"(?:высокая|средняя|низкая)\s*\((\d+)/(\d+)\)",
-        text,
-        re.IGNORECASE
-    )
+    r"(?:высокая|средняя|низкая)\s*\((\d+)/(\d+)\)",
+    text,
+    re.IGNORECASE
     )
 
     act_time = None
