@@ -193,7 +193,7 @@ def analyze(act_time, smev_time):
 # ---------------- STATS ----------------
 def analyze_history(data):
 
-    global all_time_record
+    #//global all_time_record
 
     if not data:
         return {"error": "no data"}
