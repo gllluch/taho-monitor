@@ -322,6 +322,16 @@ def monitor():
             )
 
             point = {
+            global all_time_record
+
+                    if users > all_time_record["users"]:
+            
+                        all_time_record = {
+                            "users": users,
+                            "time": datetime.now().strftime(
+                                "%Y-%m-%d %H:%M"
+                            )
+                        }
                 "time": datetime.utcnow().isoformat() + "Z",
                 "act": round(act_delay, 2),
                 "smev": round(smev_delay, 2),
@@ -351,16 +361,6 @@ def monitor():
             print("MONITOR ERROR:", e)
 
         time.sleep(60)
-#global all_time_record
-
-if users > all_time_record["users"]:
-
-    all_time_record = {
-        "users": users,
-        "time": datetime.now().strftime(
-            "%Y-%m-%d %H:%M"
-        )
-    }
 
 # ---------------- ROUTES ----------------
 @app.route("/")
