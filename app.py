@@ -17,6 +17,11 @@ CHAT_ID = os.getenv("CHAT_ID")
 
 DATA_FILE = "/opt/taho-monitor/data.json"
 
+all_time_record = {
+    "users": 0,
+    "time": "-"
+}
+
 data_cache = []
 MAX_POINTS = 300
 
@@ -188,6 +193,8 @@ def analyze(act_time, smev_time):
 # ---------------- STATS ----------------
 def analyze_history(data):
 
+    global all_time_record
+
     if not data:
         return {"error": "no data"}
 
@@ -213,11 +220,17 @@ def analyze_history(data):
     if not last_hour:
         return {"error": "no recent data"}
 
-    smev = [x["smev"] for x in last_hour]
-    act = [x["act"] for x in last_hour]
+    smev = [
+        x.get("smev", 0)
+        for x in last_hour
+    ]
 
-    # рекорды users
-    all_time_record = None
+    act = [
+        x.get("act", 0)
+        for x in last_hour
+    ]
+
+    # рекорд users за текущие сутки
     day_record = None
 
     today = now.date()
@@ -233,18 +246,6 @@ def analyze_history(data):
 
             users = x.get("users", 0)
 
-            # рекорд за всё время
-            if (
-                all_time_record is None or
-                users > all_time_record["users"]
-            ):
-
-                all_time_record = {
-                    "users": users,
-                    "time": t.strftime("%Y-%m-%d %H:%M")
-                }
-
-            # рекорд за сутки
             if t.date() == today:
 
                 if (
@@ -263,16 +264,30 @@ def analyze_history(data):
     return {
         "points": len(last_hour),
 
-        "avg_smev": round(sum(smev) / len(smev), 2),
-        "max_smev": round(max(smev), 2),
+        "avg_smev": round(
+            sum(smev) / len(smev),
+            2
+        ),
 
-        "avg_act": round(sum(act) / len(act), 2),
-        "max_act": round(max(act), 2),
+        "max_smev": round(
+            max(smev),
+            2
+        ),
+
+        "avg_act": round(
+            sum(act) / len(act),
+            2
+        ),
+
+        "max_act": round(
+            max(act),
+            2
+        ),
 
         "all_time_record": all_time_record,
+
         "day_record": day_record
     }
-
 # ---------------- MONITOR ----------------
 def monitor():
     global data_cache
@@ -336,7 +351,16 @@ def monitor():
             print("MONITOR ERROR:", e)
 
         time.sleep(60)
+global all_time_record
 
+if users > all_time_record["users"]:
+
+    all_time_record = {
+        "users": users,
+        "time": datetime.now().strftime(
+            "%Y-%m-%d %H:%M"
+        )
+    }
 
 # ---------------- ROUTES ----------------
 @app.route("/")
