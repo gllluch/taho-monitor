@@ -351,7 +351,7 @@ def monitor():
             print("MONITOR ERROR:", e)
 
         time.sleep(60)
-global all_time_record
+#global all_time_record
 
 if users > all_time_record["users"]:
 
