@@ -322,9 +322,15 @@ def monitor():
                 smev_time
             )
 
-            point = {
+                    point = {
+                        "time": datetime.utcnow().isoformat() + "Z",
+                        "act": round(act_delay, 2),
+                        "smev": round(smev_delay, 2),
+                        "users": users,
+                        "users_avg": users_avg,
+                        "status": status
+                    }
             
-
                     if users > all_time_record["users"]:
             
                         all_time_record = {
@@ -333,13 +339,6 @@ def monitor():
                                 "%Y-%m-%d %H:%M"
                             )
                         }
-                "time": datetime.utcnow().isoformat() + "Z",
-                "act": round(act_delay, 2),
-                "smev": round(smev_delay, 2),
-                "users": users,
-                "users_avg": users_avg,
-                "status": status
-            }
 
             data_cache.append(point)
 
