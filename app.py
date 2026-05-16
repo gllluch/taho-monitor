@@ -294,6 +294,7 @@ def monitor():
     global last_status
     global last_act_time
     global last_smev_time
+    global all_time_record
 
     while True:
         try:
@@ -322,7 +323,7 @@ def monitor():
             )
 
             point = {
-            global all_time_record
+            
 
                     if users > all_time_record["users"]:
             
