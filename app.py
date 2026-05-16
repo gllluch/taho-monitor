@@ -321,25 +321,24 @@ def monitor():
                 act_time,
                 smev_time
             )
-
             point = {
-                        "time": datetime.utcnow().isoformat() + "Z",
-                        "act": round(act_delay, 2),
-                        "smev": round(smev_delay, 2),
-                        "users": users,
-                        "users_avg": users_avg,
-                        "status": status
-                    }
-            
-                    if users > all_time_record["users"]:
-            
-                        all_time_record = {
-                            "users": users,
-                            "time": datetime.now().strftime(
-                                "%Y-%m-%d %H:%M"
-                            )
-                        }
-
+                "time": datetime.utcnow().isoformat() + "Z",
+                "act": round(act_delay, 2),
+                "smev": round(smev_delay, 2),
+                "users": users,
+                "users_avg": users_avg,
+                "status": status
+            }
+    
+            if users > all_time_record["users"]:
+    
+                all_time_record = {
+                    "users": users,
+                    "time": datetime.now().strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
+                }
+           
             data_cache.append(point)
 
             if len(data_cache) > MAX_POINTS:
