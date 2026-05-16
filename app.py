@@ -322,7 +322,7 @@ def monitor():
                 smev_time
             )
 
-                    point = {
+            point = {
                         "time": datetime.utcnow().isoformat() + "Z",
                         "act": round(act_delay, 2),
                         "smev": round(smev_delay, 2),
