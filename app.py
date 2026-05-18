@@ -340,19 +340,22 @@ def monitor():
     
             if users > all_time_record["users"]:
 
-                all_time_record = {
-                            "users": users,
-                            "time": datetime.utcnow().isoformat() + "Z"
-                }
-            
-                    try:
-            
-                         with open(RECORD_FILE, "w") as f:
-                            json.dump(
-                                all_time_record,
-                                f,
-                                indent=2
-                            )
+            all_time_record = {
+                "users": users,
+                "time": datetime.utcnow().isoformat() + "Z"
+            }
+
+            try:
+
+                with open(RECORD_FILE, "w") as f:
+                    json.dump(
+                        all_time_record,
+                        f,
+                        indent=2
+                    )
+
+            except Exception as e:
+                print("RECORD SAVE ERROR:", e)
 
             except Exception as e:
                 print("RECORD SAVE ERROR:", e)
