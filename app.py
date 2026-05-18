@@ -11,16 +11,24 @@ import os
 app = Flask(__name__)
 
 URL = "https://tah-o.ru/activation/status"
+RECORD_FILE = "/opt/taho-monitor/record.json"
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 DATA_FILE = "/opt/taho-monitor/data.json"
 
-all_time_record = {
-    "users": 0,
-    "time": "-"
-}
+try:
+
+    with open(RECORD_FILE, "r") as f:
+        all_time_record = json.load(f)
+
+except:
+
+    all_time_record = {
+        "users": 0,
+        "time": "-"
+    }
 
 data_cache = []
 MAX_POINTS = 300
@@ -331,11 +339,23 @@ def monitor():
             }
     
             if users > all_time_record["users"]:
-    
+
                 all_time_record = {
-                    "users": users,
-                    "time": datetime.utcnow().isoformat() + "Z"
+                            "users": users,
+                            "time": datetime.utcnow().isoformat() + "Z"
                 }
+            
+                    try:
+            
+                         with open(RECORD_FILE, "w") as f:
+                            json.dump(
+                                all_time_record,
+                                f,
+                                indent=2
+                            )
+
+            except Exception as e:
+                print("RECORD SAVE ERROR:", e)
            
             data_cache.append(point)
 
