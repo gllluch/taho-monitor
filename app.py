@@ -340,10 +340,10 @@ def monitor():
     
             if users > all_time_record["users"]:
 
-            all_time_record = {
-                "users": users,
-                "time": datetime.utcnow().isoformat() + "Z"
-            }
+                all_time_record = {
+                    "users": users,
+                    "time": datetime.utcnow().isoformat() + "Z"
+                }
 
             try:
 
