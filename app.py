@@ -255,7 +255,7 @@ def analyze_history(data):
 
                     day_record = {
                         "users": users,
-                        "time": t.strftime("%H:%M")
+                        "time": t.isoformat() + "Z"
                     }
 
         except:
@@ -334,8 +334,7 @@ def monitor():
     
                 all_time_record = {
                     "users": users,
-                    "time": datetime.now().strftime(
-                        "%Y-%m-%d %H:%M"
+                    "time": datetime.utcnow().isoformat() + "Z"
                     )
                 }
            
