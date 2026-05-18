@@ -335,7 +335,6 @@ def monitor():
                 all_time_record = {
                     "users": users,
                     "time": datetime.utcnow().isoformat() + "Z"
-                    )
                 }
            
             data_cache.append(point)
