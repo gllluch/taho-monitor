@@ -116,11 +116,11 @@ async function loadStats() {
                     
                         Рекорд суток:<br>
                         ${s.day_record?.users || 0}
-                        (${s.day_record?.time || '-'})<br><br>
+                       ${localTime(s.day_record?.time)}<br><br>
                     
                         Рекорд за всё время:<br>
                         ${s.all_time_record?.users || 0}
-                        (${s.all_time_record?.time || '-'})
+                        (${localTime(s.all_time_record?.time)})
                     </div>
                 </div>
             </div>
@@ -130,7 +130,27 @@ async function loadStats() {
         console.log("STATS ERROR", e);
     }
 }
+ //------------------------------------------   
+function localTime(str) {
 
+    if (!str || str === '-') {
+        return '-';
+    }
+
+    const d = new Date(str);
+
+    if (isNaN(d.getTime())) {
+        return str;
+    }
+
+    return d.toLocaleString([], {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 
 // ---------------- RAW ----------------
 async function loadRaw() {
