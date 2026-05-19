@@ -1,23 +1,33 @@
-from flask import Flask, jsonify, send_from_directory
-import threading
-import time
-import requests
-from datetime import datetime
-from bs4 import BeautifulSoup
+```python
+import os
 import re
 import json
-import os
+import time
+import threading
+from datetime import datetime
+
+import requests
+from bs4 import BeautifulSoup
+from flask import Flask, jsonify, send_from_directory
 
 app = Flask(__name__)
 
 URL = "https://tah-o.ru/activation/status"
-RECORD_FILE = "/opt/taho-monitor/record.json"
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
 
 DATA_FILE = "/opt/taho-monitor/data.json"
+RECORD_FILE = "/opt/taho-monitor/record.json"
 
+data_cache = []
+
+raw_status = {
+    "activation": "нет данных",
+    "smev": "нет данных",
+    "users": 0,
+    "users_avg": 0,
+    "queue": 0
+}
+
+# загрузка all-time рекорда
 try:
 
     with open(RECORD_FILE, "r") as f:
@@ -30,93 +40,17 @@ except:
         "time": "-"
     }
 
-data_cache = []
-MAX_POINTS = 300
+# загрузка истории
+try:
 
-last_status = None
-visits = 0
+    with open(DATA_FILE, "r") as f:
+        data_cache = json.load(f)
 
-# fallback значения
-last_act_time = None
-last_smev_time = None
-
-# сырые данные источника
-raw_status = {
-    "activation": "нет данных",
-    "smev": "нет данных",
-    "users": 0,
-    "users_avg": 0
-}
+except:
+    data_cache = []
 
 
-# ---------------- TELEGRAM ----------------
-def send_alert(text):
-    try:
-        if not BOT_TOKEN or not CHAT_ID:
-            return
-
-        requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": CHAT_ID,
-                "text": text
-            },
-            timeout=10
-        )
-
-    except Exception as e:
-        print("Telegram error:", e)
-
-
-# ---------------- SAVE ----------------
-def save_data(point):
-    try:
-        tmp_file = DATA_FILE + ".tmp"
-
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r") as f:
-                try:
-                    data = json.load(f)
-                except:
-                    data = []
-        else:
-            data = []
-
-        data.append(point)
-
-        if len(data) > 1000:
-            data = data[-1000:]
-
-        with open(tmp_file, "w") as f:
-            json.dump(data, f)
-
-        os.replace(tmp_file, DATA_FILE)
-
-    except Exception as e:
-        print("SAVE ERROR:", e)
-
-
-# ---------------- LOAD ----------------
-def load_data():
-    global data_cache
-
-    try:
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r") as f:
-                try:
-                    data = json.load(f)
-                except:
-                    data = []
-
-                if isinstance(data, list):
-                    data_cache = data[-MAX_POINTS:]
-                    print("LOADED:", len(data_cache))
-
-    except Exception as e:
-        print("LOAD ERROR:", e)
-
-
-# ---------------- PARSE ----------------
+# ---------------- PARSER ----------------
 def parse_times(html):
 
     global raw_status
@@ -135,9 +69,15 @@ def parse_times(html):
     )
 
     users_match = re.search(
-    r"(?:высокая|средняя|низкая)\s*\((\d+)/(\d+)\)",
-    text,
-    re.IGNORECASE
+        r"(?:высокая|средняя|низкая)\s*\((\d+)/(\d+)\)",
+        text,
+        re.IGNORECASE
+    )
+
+    queue_match = re.search(
+        r"долго\s*\((\d+)\s*min",
+        text,
+        re.IGNORECASE
     )
 
     act_time = None
@@ -146,10 +86,12 @@ def parse_times(html):
     act_raw = "нет данных"
     smev_raw = "нет данных"
 
-    users = 0 
+    users = 0
     users_avg = 0
+    queue_minutes = 0
 
     if act_match:
+
         act_raw = act_match.group(1)
 
         act_time = datetime.strptime(
@@ -158,6 +100,7 @@ def parse_times(html):
         )
 
     if smev_match:
+
         smev_raw = smev_match.group(1)
 
         smev_time = datetime.strptime(
@@ -166,42 +109,35 @@ def parse_times(html):
         )
 
     if users_match:
+
         users = int(users_match.group(1))
         users_avg = int(users_match.group(2))
-        
+
+    if queue_match:
+
+        queue_minutes = int(
+            queue_match.group(1)
+        )
+
     raw_status = {
         "activation": act_raw,
         "smev": smev_raw,
-        "users": users, 
-        "users_avg": users_avg
+        "users": users,
+        "users_avg": users_avg,
+        "queue": queue_minutes
     }
 
-    return act_time, smev_time, users, users_avg
-    
-# ---------------- ANALYZE ----------------
-def analyze(act_time, smev_time):
-    now = datetime.now()
-
-    act_delay = (now - act_time).total_seconds() / 60
-    smev_delay = (now - smev_time).total_seconds() / 60
-
-    status = "OK"
-
-    if smev_delay > 60:
-        status = "SMEV_CRITICAL"
-    elif smev_delay > 30:
-        status = "SMEV_SLOW"
-    elif act_delay > 20:
-        status = "ACTIVATION_DELAY"
-
-    return status, act_delay, smev_delay
-
+    return (
+        act_time,
+        smev_time,
+        users,
+        users_avg,
+        queue_minutes
+    )
 
 
 # ---------------- STATS ----------------
 def analyze_history(data):
-
-    #//global all_time_record
 
     if not data:
         return {"error": "no data"}
@@ -238,7 +174,6 @@ def analyze_history(data):
         for x in last_hour
     ]
 
-    # рекорд users за текущие сутки
     day_record = None
 
     today = now.date()
@@ -296,48 +231,66 @@ def analyze_history(data):
 
         "day_record": day_record
     }
+
+
 # ---------------- MONITOR ----------------
 def monitor():
+
     global data_cache
-    global last_status
-    global last_act_time
-    global last_smev_time
     global all_time_record
 
-    while True:
-        try:
-            response = requests.get(URL, timeout=15)
+    last_smev_time = None
+    last_act_time = None
 
-            act_new, smev_new, users, users_avg = parse_times(response.text)
-            
-            # fallback логика
+    while True:
+
+        try:
+
+            response = requests.get(
+                URL,
+                timeout=20
+            )
+
+            act_new, smev_new, users, users_avg, queue_minutes = parse_times(
+                response.text
+            )
+
             if act_new:
                 last_act_time = act_new
 
             if smev_new:
                 last_smev_time = smev_new
 
-            act_time = last_act_time
-            smev_time = last_smev_time
-
-            if not act_time or not smev_time:
-                print("NO DATA YET")
-                time.sleep(60)
+            if not last_act_time or not last_smev_time:
+                time.sleep(30)
                 continue
 
-            status, act_delay, smev_delay = analyze(
-                act_time,
-                smev_time
-            )
+            now = datetime.utcnow()
+
+            act_delay = (
+                now - last_act_time
+            ).total_seconds() / 60
+
+            smev_delay = (
+                now - last_smev_time
+            ).total_seconds() / 60
+
+            status = "OK"
+
+            if smev_delay > 60:
+                status = "ПРОБЛЕМЫ"
+
             point = {
                 "time": datetime.utcnow().isoformat() + "Z",
                 "act": round(act_delay, 2),
                 "smev": round(smev_delay, 2),
                 "users": users,
                 "users_avg": users_avg,
+                "queue": queue_minutes,
                 "status": status
             }
-    
+
+            # all-time record
             if users > all_time_record["users"]:
 
                 all_time_record = {
@@ -345,46 +298,49 @@ def monitor():
                     "time": datetime.utcnow().isoformat() + "Z"
                 }
 
+                try:
+
+                    with open(RECORD_FILE, "w") as f:
+                        json.dump(
+                            all_time_record,
+                            f,
+                            indent=2
+                        )
+
+                except Exception as e:
+                    print("RECORD SAVE ERROR:", e)
+
+            data_cache.append(point)
+
+            # ограничение размера
+            if len(data_cache) > 5000:
+                data_cache = data_cache[-5000:]
+
             try:
 
-                with open(RECORD_FILE, "w") as f:
+                with open(DATA_FILE, "w") as f:
                     json.dump(
-                        all_time_record,
+                        data_cache,
                         f,
                         indent=2
                     )
 
             except Exception as e:
-                print("RECORD SAVE ERROR:", e)
-
-            except Exception as e:
-                print("RECORD SAVE ERROR:", e)
-           
-            data_cache.append(point)
-
-            if len(data_cache) > MAX_POINTS:
-                data_cache.pop(0)
-
-            save_data(point)
+                print("DATA SAVE ERROR:", e)
 
             print(point)
 
-            if status != last_status:
-                send_alert(
-                    f"{status}\n"
-                    f"СМЭВ: {smev_delay:.1f} мин"
-                )
-
-                last_status = status
-
         except Exception as e:
+
             print("MONITOR ERROR:", e)
 
-        time.sleep(60)
+        time.sleep(30)
+
 
 # ---------------- ROUTES ----------------
 @app.route("/")
 def index():
+
     return send_from_directory(
         "/opt/taho-monitor",
         "index.html"
@@ -392,43 +348,35 @@ def index():
 
 
 @app.route("/data")
-def get_data():
+def data():
+
     return jsonify(data_cache)
 
 
 @app.route("/stats")
 def stats():
-    try:
-        if not os.path.exists(DATA_FILE):
-            return {"error": "no file"}
 
-        with open(DATA_FILE, "r") as f:
-            data = json.load(f)
-
-    except:
-        return {"error": "bad file"}
-
-    return analyze_history(data)
+    return jsonify(
+        analyze_history(data_cache)
+    )
 
 
 @app.route("/raw")
 def raw():
+
     return jsonify(raw_status)
 
 
-@app.route("/visits")
-def get_visits():
-    global visits
-
-    visits += 1
-
-    return {"visits": visits}
-
-
 # ---------------- START ----------------
-load_data()
-
 threading.Thread(
     target=monitor,
     daemon=True
 ).start()
+
+if __name__ == "__main__":
+
+    app.run(
+        host="0.0.0.0",
+        port=8000
+    )
+```
