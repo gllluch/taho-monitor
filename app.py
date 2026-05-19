@@ -99,6 +99,9 @@ def parse_times(html):
             "%Y-%m-%d %H:%M:%S"
         )
 
+# MSK -> UTC
+        act_time = act_time.replace(hour=act_time.hour - 3)
+
     if smev_match:
 
         smev_raw = smev_match.group(1)
@@ -106,6 +109,11 @@ def parse_times(html):
         smev_time = datetime.strptime(
             smev_raw,
             "%Y-%m-%d %H:%M:%S"
+        )
+
+# MSK -> UTC
+        smev_time = smev_time.replace(
+            hour=smev_time.hour - 3
         )
 
     if users_match:
@@ -142,7 +150,7 @@ def analyze_history(data):
     if not data:
         return {"error": "no data"}
 
-    now = datetime.now()
+    now = datetime.utcnow()
 
     last_hour = []
 
