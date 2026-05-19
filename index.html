@@ -1,69 +1,136 @@
-```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-
     <meta charset="UTF-8">
-
-    <title>
-        Мониторинг Tah-O
-    </title>
+    <title>Мониторинг СМЭВ</title>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 
 <body style="
     font-family:sans-serif;
-    margin:0;
-    padding:10px;
+    margin:20px;
 ">
 
 <h2>СМЭВ / Активизации</h2>
 
-<h3 id="status">
-    Загрузка...
-</h3>
+<h3 id="status">Загрузка...</h3>
 
 <div id="stats" style="
     margin-top:20px;
 "></div>
 
+<div id="raw" style="
+    margin-top:20px;
+    padding:12px;
+    background:#f5f5f5;
+    border-radius:8px;
+    font-size:14px;
+"></div>
+
 <div style="
-    position:relative;
-    height:35vh;
-    width:100%;
+    position: relative;
+    height: 55vh;
+    width: 100%;
 ">
     <canvas id="chart"></canvas>
 </div>
-
-<h3 style="
-    margin-top:30px;
-">
+<h3 style="margin-top:30px;">
     Активность пользователей Tah-O
 </h3>
 
 <div style="
-    position:relative;
-    height:25vh;
-    width:100%;
+    position: relative;
+    height: 25vh;
+    width: 100%;
 ">
     <canvas id="usersChart"></canvas>
+</div>    
+<!-- visits -->
+<div id="visits" style="
+    position:fixed;
+    bottom:5px;
+    right:10px;
+    font-size:11px;
+    color:#999;
+">
+    visits: ...
 </div>
 
 <script>
 
 let chart;
 let usersChart;
-
+    
 function getColor(value) {
-
     if (value > 60) return 'red';
     if (value > 30) return 'orange';
 
     return 'green';
 }
 
+
+// ---------------- STATS ----------------
+async function loadStats() {
+    try {
+
+        const res = await fetch('/stats');
+        const s = await res.json();
+        const dataRes = await fetch('/data');
+        const data = await dataRes.json();
+
+       const lastUsers =
+            data.length
+                ? (data[data.length - 1].users || 0)
+                : 0;
+
+        const lastUsersAvg =
+            data.length
+                ? (data[data.length - 1].users_avg || 0)
+                : 0;
+
+        document.getElementById('stats').innerHTML = `
+            <div style="
+                display:flex;
+                gap:40px;
+                margin-top:10px;
+            ">
+
+                <div>
+                    <b>СМЭВ</b><br>
+                    Средний: ${s.avg_smev} мин<br>
+                    Макс: ${s.max_smev} мин
+                </div>
+
+                <div>
+                    <b>Активации</b><br>
+                    Средний: ${s.avg_act} мин<br>
+                    Макс: ${s.max_act} мин
+                </div>
+                    <div>
+                    <div>
+                        <b>Пользователи</b><br>
+                    
+                        Сейчас:
+                        ${lastUsers} / ${lastUsersAvg}<br><br>
+                    
+                        Рекорд суток:<br>
+                        ${s.day_record?.users || 0}
+                       ${localTime(s.day_record?.time)}<br><br>
+                    
+                        Рекорд за всё время:<br>
+                        ${s.all_time_record?.users || 0}
+                        (${localTime(s.all_time_record?.time)})
+                    </div>
+                </div>
+            </div>
+        `;
+
+    } catch(e) {
+        console.log("STATS ERROR", e);
+    }
+}
+ //------------------------------------------   
 function localTime(str) {
 
     if (!str || str === '-') {
@@ -85,98 +152,55 @@ function localTime(str) {
     });
 }
 
-async function loadStats() {
+// ---------------- RAW ----------------
+async function loadRaw() {
 
     try {
 
-        const res = await fetch('/stats');
-        const s = await res.json();
+        const res = await fetch('/raw');
+        const r = await res.json();
 
-        const dataRes = await fetch('/data');
-        const data = await dataRes.json();
+        function convertTime(str) {
 
-        const lastUsers =
-            data.length
-                ? (data[data.length - 1].users || 0)
-                : 0;
+            if (!str || str === "нет данных") {
+                return str;
+            }
 
-        const lastUsersAvg =
-            data.length
-                ? (data[data.length - 1].users_avg || 0)
-                : 0;
+            // "2026-04-12 15:40:00"
+            const iso = str.replace(' ', 'T') + '+03:00';
 
-        document.getElementById('stats').innerHTML = `
+            const d = new Date(iso);
 
-            <div style="
-                display:flex;
-                gap:40px;
-                flex-wrap:wrap;
-                margin-top:10px;
-            ">
+            if (isNaN(d.getTime())) {
+                return str;
+            }
 
-                <div>
+            return d.toLocaleString([], {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
 
-                    <b>СМЭВ</b><br>
+        document.getElementById('raw').innerHTML = `
+            <b>Данные источника:</b><br><br>
 
-                    Средний:
-                    ${s.avg_smev} мин<br>
+            Последняя активизация:<br>
+            ${convertTime(r.activation)}<br><br>
 
-                    Макс:
-                    ${s.max_smev} мин
-
-                </div>
-
-                <div>
-
-                    <b>Активации</b><br>
-
-                    Средний:
-                    ${s.avg_act} мин<br>
-
-                    Макс:
-                    ${s.max_act} мин
-
-                </div>
-
-                <div>
-
-                    <b>Пользователи</b><br>
-
-                    Сейчас:
-                    ${lastUsers} / ${lastUsersAvg}<br><br>
-
-                    Рекорд суток:<br>
-
-                    ${s.day_record?.users || 0}
-                    (
-                    ${localTime(
-                        s.day_record?.time
-                    )}
-                    )<br><br>
-
-                    Рекорд за всё время:<br>
-
-                    ${s.all_time_record?.users || 0}
-                    (
-                    ${localTime(
-                        s.all_time_record?.time
-                    )}
-                    )
-
-                </div>
-
-            </div>
+            Последний ответ СМЭВ:<br>
+            ${convertTime(r.smev)}
         `;
 
     } catch(e) {
-
-        console.log(
-            "STATS ERROR",
-            e
-        );
+        console.log("RAW ERROR", e);
     }
 }
 
+// ---------------- MAIN GRAPH ----------------
 async function load() {
 
     try {
@@ -184,48 +208,49 @@ async function load() {
         const res = await fetch('/data');
         const data = await res.json();
 
-        if (!data || data.length === 0) {
-            return;
-        }
+        if (!data || data.length === 0) return;
 
         const labels = data.map(x => {
 
-            const d = new Date(x.time);
+    // старый формат HH:MM
+    if (typeof x.time === 'string' && x.time.length <= 5) {
+        return x.time;
+    }
 
-            return d.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        });
+    // новый ISO формат
+    const d = new Date(x.time);
 
+    if (isNaN(d.getTime())) {
+        return "??";
+    }
+
+    return d.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+});
+
+   
         const smev = data.map(x => x.smev);
         const act = data.map(x => x.act);
-        const queue = data.map(x => x.queue || 0);
 
         const last = data[data.length - 1];
 
-        const statusEl =
-            document.getElementById(
-                "status"
-            );
+        const statusEl = document.getElementById("status");
 
         if (statusEl && last) {
 
             statusEl.innerText =
-                `Статус: ${last.status}
-                | СМЭВ: ${last.smev} мин`;
+                `Статус: ${last.status} | СМЭВ: ${last.smev} мин`;
 
-            statusEl.style.color =
-                getColor(last.smev);
+            statusEl.style.color = getColor(last.smev);
         }
 
         if (chart) {
 
             chart.data.labels = labels;
-
             chart.data.datasets[0].data = smev;
             chart.data.datasets[1].data = act;
-            chart.data.datasets[2].data = queue;
 
             chart.update();
 
@@ -238,33 +263,29 @@ async function load() {
                 type: 'line',
 
                 data: {
-
                     labels: labels,
 
                     datasets: [
-
                         {
-                            label: 'СМЭВ, время с последнего ответа, м',
+                            label: 'СМЭВ (мин)',
                             data: smev,
-                            borderColor: 'red',
                             borderWidth: 2,
                             tension: 0.2
                         },
 
                         {
-                            label: 'Активации, время с последнего ответа, м',
+                            label: 'Активации (мин)',
                             data: act,
-                            borderColor: 'blue',
                             borderWidth: 2,
                             tension: 0.2
                         },
 
                         {
-                            label: 'Обработка последних запросов, м',
-                            data: queue,
-                            borderColor: 'purple',
-                            borderWidth: 2,
-                            tension: 0.2
+                            label: 'Критический уровень (60 мин)',
+                            data: labels.map(() => 60),
+                            borderDash: [5,5],
+                            borderWidth: 1,
+                            pointRadius: 0
                         }
                     ]
                 },
@@ -272,21 +293,35 @@ async function load() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: false
+                    animation: false,
+                    
+
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Задержка (минуты)'
+                            }
+                        },
+
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Время'
+                            }
+                        }
+                    }
                 }
             }
         );
 
     } catch(e) {
-
-        console.log(
-            "LOAD ERROR",
-            e
-        );
+        console.log("LOAD ERROR", e);
     }
 }
 
-async function loadUsersGraph() {
+//-----------------Users GRAPH---------------
+    async function loadUsersGraph() {
 
     try {
 
@@ -295,33 +330,27 @@ async function loadUsersGraph() {
 
         const labels = data.map(x => {
 
+            if (typeof x.time === 'string' && x.time.length <= 5) {
+                return x.time;
+            }
+
             const d = new Date(x.time);
 
             return d.toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit'
             });
+
         });
 
-        const users =
-            data.map(
-                x => x.users || 0
-            );
-
-        const usersAvg =
-            data.map(
-                x => x.users_avg || 0
-            );
+        const users = data.map(x => x.users || 0);
+        const usersAvg = data.map(x => x.users_avg || 0);
 
         if (usersChart) {
 
             usersChart.data.labels = labels;
-
-            usersChart.data.datasets[0].data =
-                users;
-
-            usersChart.data.datasets[1].data =
-                usersAvg;
+            usersChart.data.datasets[0].data = users;
+            usersChart.data.datasets[1].data = usersAvg;
 
             usersChart.update();
 
@@ -329,25 +358,21 @@ async function loadUsersGraph() {
         }
 
         usersChart = new Chart(
-            document.getElementById(
-                'usersChart'
-            ),
+            document.getElementById('usersChart'),
             {
                 type: 'line',
 
                 data: {
-
                     labels: labels,
 
                     datasets: [
-
                         {
                             label: 'Текущая активность',
                             data: users,
                             borderWidth: 2,
                             tension: 0.2
                         },
-
+                    
                         {
                             label: 'Средняя активность',
                             data: usersAvg,
@@ -356,6 +381,7 @@ async function loadUsersGraph() {
                             tension: 0.2
                         }
                     ]
+                    
                 },
 
                 options: {
@@ -367,24 +393,74 @@ async function loadUsersGraph() {
         );
 
     } catch(e) {
-
-        console.log(
-            "USERS GRAPH ERROR",
-            e
-        );
+        console.log("USERS GRAPH ERROR", e);
     }
 }
+// ---------------- VISITS ----------------
+async function loadVisits() {
 
+    try {
+
+        const res = await fetch('/visits');
+        const data = await res.json();
+
+        document.getElementById('visits').innerText =
+            "visits: " + data.visits;
+
+    } catch {}
+}
+
+
+// ---------------- AUTO UPDATE ----------------
 setInterval(load, 10000);
-setInterval(loadStats, 10000);
+setInterval(loadStats, 30000);
+setInterval(loadRaw, 10000);
 setInterval(loadUsersGraph, 10000);
 
+loadUsersGraph();
 load();
 loadStats();
-loadUsersGraph();
+loadRaw();
+loadVisits();
 
 </script>
 
+<!-- footer -->
+<div style="
+    margin-top:30px;
+    text-align:center;
+    font-size:12px;
+    color:#777;
+">
+
+    разработка
+
+    <a href="https://t.me/glluch"
+       target="_blank"
+       style="
+            color:#0088cc;
+            text-decoration:none;
+       ">
+        @glluch
+    </a>
+
+    <br>
+
+    <a href="https://t.me/glluch"
+       target="_blank">
+
+        <img
+            src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/telegram.svg"
+            width="16"
+            style="
+                margin-top:5px;
+                opacity:0.7;
+            "
+        >
+
+    </a>
+
+</div>
+
 </body>
 </html>
-```
