@@ -31,7 +31,7 @@ except:
     }
 
 data_cache = []
-MAX_POINTS = 300
+MAX_POINTS = 1440
 
 last_status = None
 visits = 0
