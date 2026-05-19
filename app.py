@@ -142,7 +142,7 @@ def analyze_history(data):
     if not data:
         return {"error": "no data"}
 
-    now = datetime.utcnow()
+    now = datetime.now()
 
     last_hour = []
 
