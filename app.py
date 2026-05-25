@@ -45,7 +45,8 @@ raw_status = {
     "activation": "нет данных",
     "smev": "нет данных",
     "users": 0,
-    "users_avg": 0
+    "users_avg": 0, 
+    "processing": 0
 }
 
 
@@ -139,6 +140,12 @@ def parse_times(html):
     text,
     re.IGNORECASE
     )
+    
+    processing_match = re.search(
+        r"СМЭВ обработка последних запросов.*?долго\s*\((\d+)\s*min",
+        text,
+        re.IGNORECASE
+    )
 
     act_time = None
     smev_time = None
@@ -146,8 +153,9 @@ def parse_times(html):
     act_raw = "нет данных"
     smev_raw = "нет данных"
 
-    users = 0 
+    users = 0
     users_avg = 0
+    processing_minutes = 0
 
     if act_match:
         act_raw = act_match.group(1)
@@ -168,16 +176,29 @@ def parse_times(html):
     if users_match:
         users = int(users_match.group(1))
         users_avg = int(users_match.group(2))
+
+    if processing_match:
+
+        processing_minutes = int(
+            processing_match.group(1)
+        ) 
         
     raw_status = {
         "activation": act_raw,
         "smev": smev_raw,
         "users": users, 
-        "users_avg": users_avg
+        "users_avg": users_avg, 
+        "processing": processing_minutes
     }
 
-    return act_time, smev_time, users, users_avg
-    
+    return (
+        act_time,
+        smev_time,
+        users,
+        users_avg,
+        processing_minutes
+    )
+
 # ---------------- ANALYZE ----------------
 def analyze(act_time, smev_time):
     now = datetime.now()
@@ -308,7 +329,9 @@ def monitor():
         try:
             response = requests.get(URL, timeout=15)
 
-            act_new, smev_new, users, users_avg = parse_times(response.text)
+            act_new, smev_new, users, users_avg, processing_minutes = parse_times(
+                response.text
+            )
             
             # fallback логика
             if act_new:
@@ -335,6 +358,7 @@ def monitor():
                 "smev": round(smev_delay, 2),
                 "users": users,
                 "users_avg": users_avg,
+                "processing": processing_minutes,
                 "status": status
             }
     
@@ -357,9 +381,7 @@ def monitor():
             except Exception as e:
                 print("RECORD SAVE ERROR:", e)
 
-            except Exception as e:
-                print("RECORD SAVE ERROR:", e)
-           
+                     
             data_cache.append(point)
 
             if len(data_cache) > MAX_POINTS:
