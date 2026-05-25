@@ -233,6 +233,9 @@ async function load() {
    
         const smev = data.map(x => x.smev);
         const act = data.map(x => x.act);
+        const processing = data.map(
+            x => x.processing || 0
+        );
 
         const last = data[data.length - 1];
 
@@ -251,6 +254,8 @@ async function load() {
             chart.data.labels = labels;
             chart.data.datasets[0].data = smev;
             chart.data.datasets[1].data = act;
+            chart.data.datasets[2].data =
+                processing;
 
             chart.update();
 
@@ -267,26 +272,26 @@ async function load() {
 
                     datasets: [
                         {
-                            label: 'СМЭВ (мин)',
+                            label: 'время с последнего ответа СМЭВ (мин)',
                             data: smev,
                             borderWidth: 2,
                             tension: 0.2
                         },
 
                         {
-                            label: 'Активации (мин)',
+                            label: 'Время с последней завершенной активации (мин)',
                             data: act,
                             borderWidth: 2,
                             tension: 0.2
                         },
 
                         {
-                            label: 'Критический уровень (60 мин)',
-                            data: labels.map(() => 60),
-                            borderDash: [5,5],
-                            borderWidth: 1,
-                            pointRadius: 0
-                        }
+                            label: 'Средняя обработка запросов СМЭВ (миг)',
+                            data: processing,
+                            borderColor: 'purple',
+                            borderWidth: 2,
+                            tension: 0.2
+                        },
                     ]
                 },
 
