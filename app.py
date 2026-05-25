@@ -136,15 +136,15 @@ def parse_times(html):
     )
 
     users_match = re.search(
-    r"(?:высокая|средняя|низкая)\s*\((\d+)/(\d+)\)",
-    text,
-    re.IGNORECASE
+        r"(?:высокая|средняя|низкая)\s*\((\d+)/(\d+)\)",
+        text,
+        re.IGNORECASE
     )
     
     processing_match = re.search(
-        r"СМЭВ обработка последних запросов.*?долго\s*\((\d+)\s*min",
+        r"Обработка последних запросов.*?долго\s*\((\d+)\s*min",
         text,
-        re.IGNORECASE
+        re.IGNORECASE | re.DOTALL
     )
 
     act_time = None
