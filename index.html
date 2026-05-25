@@ -274,6 +274,7 @@ async function load() {
                         {
                             label: 'время с последнего ответа СМЭВ (мин)',
                             data: smev,
+                            borderColor: 'red',
                             borderWidth: 2,
                             tension: 0.2
                         },
@@ -281,12 +282,13 @@ async function load() {
                         {
                             label: 'Время с последней завершенной активации (мин)',
                             data: act,
+                            borderColor: 'green',
                             borderWidth: 2,
                             tension: 0.2
                         },
 
                         {
-                            label: 'Средняя обработка запросов СМЭВ (миг)',
+                            label: 'Средняя обработка запросов СМЭВ (мин)',
                             data: processing,
                             borderColor: 'purple',
                             borderWidth: 2,
