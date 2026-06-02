@@ -191,15 +191,15 @@ def parse_times(html):
 
         if no_smev_match and smev_time:
 
-        processing_minutes = max(
-            0,
-            int(
-                (
-                    datetime.now() -
-                    smev_time
-                ).total_seconds() / 60
+            processing_minutes = max(
+                0,
+                int(
+                    (
+                        datetime.now() -
+                        smev_time
+                    ).total_seconds() / 60
+                )
             )
-        )
         
     raw_status = {
         "activation": act_raw,
