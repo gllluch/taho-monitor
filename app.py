@@ -356,12 +356,13 @@ def monitor():
     global last_act_time
     global last_smev_time
     global all_time_record
+    global last_cert_delay
 
     while True:
         try:
             response = requests.get(URL, timeout=15)
 
-            act_new, smev_new, cert_new, users, users_avg, processing_minutes = parse_times(
+            act_new, smev_new, users, users_avg, processing_minutes, cert_new  = parse_times(
                 response.text
             )
             
