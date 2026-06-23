@@ -459,11 +459,10 @@ def index():
 
 @app.route("/data")
 def get_data():
+    with open(DATA_FILE, "r") as f:
+        data = json.load(f)
 
-    with data_lock:
-        data = data_cache.copy()
-
-    return jsonify(data)
+    return jsonify(data[-300:])
 
 
 @app.route("/stats")
