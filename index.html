@@ -61,6 +61,7 @@
 
 let chart;
 let usersChart;
+
     
 function getColor(value) {
     if (value > 60) return 'red';
@@ -233,6 +234,7 @@ async function load() {
    
         const smev = data.map(x => x.smev);
         const act = data.map(x => x.act);
+        const cert = data.map(x => x.cert);
         const processing = data.map(
             x => x.processing || 0
         );
@@ -294,6 +296,13 @@ async function load() {
                             borderWidth: 2,
                             tension: 0.2
                         },
+                        {
+                            label: 'Сертификат (мин)',
+                            data: cert,
+                            borderColor: 'green',
+                            borderWidth: 2,
+                            tension: 0.2
+                        }
                     ]
                 },
 
