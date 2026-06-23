@@ -1,4 +1,7 @@
 from flask import Flask, jsonify, send_from_directory
+from threading import Lock
+
+data_lock = Lock()
 import threading
 import time
 import requests
@@ -421,10 +424,12 @@ def monitor():
                 print("RECORD SAVE ERROR:", e)
 
                      
-            data_cache.append(point)
+            with data_lock:
 
-            if len(data_cache) > MAX_POINTS:
-                data_cache.pop(0)
+                data_cache.append(point)
+            
+                if len(data_cache) > MAX_POINTS:
+                    data_cache.pop(0)
 
             save_data(point)
 
@@ -454,7 +459,11 @@ def index():
 
 @app.route("/data")
 def get_data():
-    return jsonify(data_cache)
+
+    with data_lock:
+        data = data_cache.copy()
+
+    return jsonify(data)
 
 
 @app.route("/stats")
