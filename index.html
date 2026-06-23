@@ -234,7 +234,7 @@ async function load() {
    
         const smev = data.map(x => x.smev);
         const act = data.map(x => x.act);
-        const cert = data.map(x => x.cert);
+        const cert = data.map(x => x.cert || null);
         const processing = data.map(
             x => x.processing || 0
         );
@@ -251,16 +251,16 @@ async function load() {
             statusEl.style.color = getColor(last.smev);
         }
 
-        if (chart) {
+       if (chart) {
 
             chart.data.labels = labels;
             chart.data.datasets[0].data = smev;
             chart.data.datasets[1].data = act;
-            chart.data.datasets[2].data =
-                processing;
-
+            chart.data.datasets[2].data = processing;
+            chart.data.datasets[3].data = cert;
+        
             chart.update();
-
+    
             return;
         }
 
