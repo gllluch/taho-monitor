@@ -12,6 +12,7 @@ app = Flask(__name__)
 
 URL = "https://tah-o.ru/activation/status"
 RECORD_FILE = "/opt/taho-monitor/record.json"
+last_cert_delay = None
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
@@ -147,6 +148,18 @@ def parse_times(html):
         re.IGNORECASE | re.DOTALL
     )
 
+
+    cert_match = re.search(
+        r"Среднее время получения сертификата.*?\((\d+)\s*мин",
+        text,
+        re.S
+    )
+    
+    cert_delay = None
+    
+    if cert_match:
+        cert_delay = int(cert_match.group(1))
+    
     act_time = None
     smev_time = None
 
@@ -214,7 +227,8 @@ def parse_times(html):
         smev_time,
         users,
         users_avg,
-        processing_minutes
+        processing_minutes,
+        cert_delay
     )
 
 # ---------------- ANALYZE ----------------
@@ -347,7 +361,7 @@ def monitor():
         try:
             response = requests.get(URL, timeout=15)
 
-            act_new, smev_new, users, users_avg, processing_minutes = parse_times(
+            act_new, smev_new, cert_new, users, users_avg, processing_minutes = parse_times(
                 response.text
             )
             
@@ -360,6 +374,11 @@ def monitor():
 
             act_time = last_act_time
             smev_time = last_smev_time
+
+            if cert_new is not None:
+                last_cert_delay = cert_new
+            
+            cert_delay = last_cert_delay
 
             if not act_time or not smev_time:
                 print("NO DATA YET")
@@ -377,6 +396,7 @@ def monitor():
                 "users": users,
                 "users_avg": users_avg,
                 "processing": processing_minutes,
+                "cert": cert_delay,
                 "status": status
             }
     
