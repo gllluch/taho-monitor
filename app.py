@@ -12,7 +12,9 @@ import os
 
 app = Flask(__name__)
 
-# ---------------- CONFIG ----------------
+# ============================================================
+# CONFIG
+# ============================================================
 
 URL = "https://tah-o.ru/activation/status"
 
@@ -25,25 +27,28 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 
-# ---------------- GLOBALS ----------------
+# ============================================================
+# GLOBALS
+# ============================================================
 
 data_lock = Lock()
 
 data_cache = []
 
 last_status = None
+
 visits = 0
 
-# Последние корректно полученные значения
 last_act_time = None
 last_smev_time = None
 last_cert_delay = None
 
-# Последнее состояние доступности СМЭВ
 last_smev_available = True
 
 
-# ---------------- ALL TIME RECORD ----------------
+# ============================================================
+# ALL TIME RECORD
+# ============================================================
 
 try:
     with open(RECORD_FILE, "r") as f:
@@ -56,7 +61,9 @@ except Exception:
     }
 
 
-# ---------------- RAW STATUS ----------------
+# ============================================================
+# RAW STATUS
+# ============================================================
 
 raw_status = {
     "activation": "нет данных",
@@ -74,6 +81,7 @@ raw_status = {
 # ============================================================
 
 def send_alert(text):
+
     try:
 
         if not BOT_TOKEN or not CHAT_ID:
@@ -91,7 +99,11 @@ def send_alert(text):
         )
 
     except Exception as e:
-        print("Telegram error:", e)
+
+        print(
+            "Telegram error:",
+            e
+        )
 
 
 # ============================================================
@@ -115,16 +127,21 @@ def save_data(point):
                     data = []
 
         else:
+
             data = []
+
 
         if not isinstance(data, list):
             data = []
 
+
         data.append(point)
 
-        # Храним максимум 1000 точек в data.json
+
         if len(data) > 1000:
+
             data = data[-1000:]
+
 
         with open(tmp_file, "w") as f:
 
@@ -134,14 +151,19 @@ def save_data(point):
                 ensure_ascii=False
             )
 
+
         os.replace(
             tmp_file,
             DATA_FILE
         )
 
+
     except Exception as e:
 
-        print("SAVE ERROR:", e)
+        print(
+            "SAVE ERROR:",
+            e
+        )
 
 
 # ============================================================
@@ -157,6 +179,7 @@ def load_data():
         if not os.path.exists(DATA_FILE):
             return
 
+
         with open(DATA_FILE, "r") as f:
 
             try:
@@ -165,20 +188,26 @@ def load_data():
             except Exception:
                 data = []
 
+
         if isinstance(data, list):
 
             with data_lock:
 
                 data_cache = data[-MAX_POINTS:]
 
+
             print(
                 "LOADED:",
                 len(data_cache)
             )
 
+
     except Exception as e:
 
-        print("LOAD ERROR:", e)
+        print(
+            "LOAD ERROR:",
+            e
+        )
 
 
 # ============================================================
@@ -189,10 +218,12 @@ def parse_times(html):
 
     global raw_status
 
+
     soup = BeautifulSoup(
         html,
         "html.parser"
     )
+
 
     text = soup.get_text(
         " ",
@@ -200,46 +231,69 @@ def parse_times(html):
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # ACTIVATION
-    # --------------------------------------------------------
+    # ========================================================
 
     act_match = re.search(
         r"Последняя завершённая активизация.*?"
         r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",
-        text
+        text,
+        re.IGNORECASE | re.DOTALL
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # SMEV
-    # --------------------------------------------------------
+    # ========================================================
 
     smev_match = re.search(
-        r"Последний ответ СМЭВ.*?"
+        r"Последний ответ СМЭВ:\s*(?:<[^>]+>\s*)?"
         r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",
-        text
+        html,
+        re.IGNORECASE | re.DOTALL
     )
 
 
-    # --------------------------------------------------------
-    # ЯВНОЕ ОТСУТСТВИЕ ОТВЕТА СМЭВ
-    # --------------------------------------------------------
+    # ========================================================
+    # SMEV: ЯВНО НЕТ ВЗАИМОДЕЙСТВИЯ
+    #
+    # Реальная фраза на сайте:
+    #
+    # "В течение часа не было взаимодействия с СМЭВ"
+    # ========================================================
 
-    no_smev_match = re.search(
-        r"В течение часа не было ответа от СМЭВ",
+    no_smev_interaction = re.search(
+        r"В течение часа не было взаимодействия с СМЭВ",
         text,
         re.IGNORECASE
     )
 
-    smev_unavailable = bool(
-        no_smev_match
+
+    # ========================================================
+    # SMEV: ПОСЛЕДНИЙ ОТВЕТ = -
+    # ========================================================
+
+    smev_response_dash = re.search(
+        r"Последний ответ СМЭВ:\s*(?:<[^>]+>\s*)?-\s*",
+        html,
+        re.IGNORECASE | re.DOTALL
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
+    # SMEV UNAVAILABLE
+    # ========================================================
+
+    smev_unavailable = (
+        no_smev_interaction is not None
+        or smev_response_dash is not None
+    )
+
+
+    # ========================================================
     # USERS
-    # --------------------------------------------------------
+    # ========================================================
 
     users_match = re.search(
         r"(?:высокая|средняя|низкая)"
@@ -249,9 +303,9 @@ def parse_times(html):
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # PROCESSING
-    # --------------------------------------------------------
+    # ========================================================
 
     processing_match = re.search(
         r"Обработка последних запросов.*?"
@@ -261,9 +315,9 @@ def parse_times(html):
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # CERTIFICATE
-    # --------------------------------------------------------
+    # ========================================================
 
     cert_match = re.search(
         r"Среднее время получения сертификата.*?"
@@ -273,9 +327,9 @@ def parse_times(html):
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # INITIAL VALUES
-    # --------------------------------------------------------
+    # ========================================================
 
     act_time = None
     smev_time = None
@@ -290,9 +344,9 @@ def parse_times(html):
     cert_delay = None
 
 
-    # --------------------------------------------------------
-    # PARSE ACTIVATION
-    # --------------------------------------------------------
+    # ========================================================
+    # ACTIVATION TIME
+    # ========================================================
 
     if act_match:
 
@@ -310,9 +364,9 @@ def parse_times(html):
             act_time = None
 
 
-    # --------------------------------------------------------
-    # PARSE SMEV
-    # --------------------------------------------------------
+    # ========================================================
+    # SMEV TIME
+    # ========================================================
 
     if smev_match:
 
@@ -330,9 +384,9 @@ def parse_times(html):
             smev_time = None
 
 
-    # --------------------------------------------------------
-    # PARSE USERS
-    # --------------------------------------------------------
+    # ========================================================
+    # USERS
+    # ========================================================
 
     if users_match:
 
@@ -352,9 +406,9 @@ def parse_times(html):
             users_avg = 0
 
 
-    # --------------------------------------------------------
-    # PARSE PROCESSING
-    # --------------------------------------------------------
+    # ========================================================
+    # PROCESSING
+    # ========================================================
 
     if processing_match:
 
@@ -369,30 +423,29 @@ def parse_times(html):
             processing_minutes = 0
 
 
-    # --------------------------------------------------------
-    # ЕСЛИ СМЭВ НЕ ОТВЕЧАЛ В ТЕЧЕНИЕ ЧАСА
+    # ========================================================
+    # ЕСЛИ СМЭВ НЕ ОТВЕЧАЕТ
     #
-    # Это должно работать НЕ внутри processing_match.
-    # --------------------------------------------------------
+    # Если есть последнее время ответа, можно показать,
+    # сколько прошло с него для processing.
+    # ========================================================
 
-    if smev_unavailable:
+    if smev_unavailable and smev_time:
 
-        if smev_time:
-
-            processing_minutes = max(
-                0,
-                int(
-                    (
-                        datetime.now() -
-                        smev_time
-                    ).total_seconds() / 60
-                )
+        processing_minutes = max(
+            0,
+            int(
+                (
+                    datetime.now() -
+                    smev_time
+                ).total_seconds() / 60
             )
+        )
 
 
-    # --------------------------------------------------------
-    # PARSE CERTIFICATE
-    # --------------------------------------------------------
+    # ========================================================
+    # CERTIFICATE
+    # ========================================================
 
     if cert_match:
 
@@ -407,9 +460,9 @@ def parse_times(html):
             cert_delay = None
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # RAW STATUS
-    # --------------------------------------------------------
+    # ========================================================
 
     raw_status = {
         "activation": act_raw,
@@ -420,6 +473,19 @@ def parse_times(html):
         "cert": cert_delay,
         "smev_available": not smev_unavailable
     }
+
+
+    print(
+        "PARSE:",
+        "SMEV_UNAVAILABLE=",
+        smev_unavailable,
+        "SMEV=",
+        smev_raw,
+        "ACT=",
+        act_raw,
+        "CERT=",
+        cert_delay
+    )
 
 
     return (
@@ -434,7 +500,7 @@ def parse_times(html):
 
 
 # ============================================================
-# ANALYZE CURRENT VALUES
+# ANALYZE
 # ============================================================
 
 def analyze(
@@ -444,9 +510,11 @@ def analyze(
 
     now = datetime.now()
 
+
     act_delay = (
         now - act_time
     ).total_seconds() / 60
+
 
     smev_delay = (
         now - smev_time
@@ -477,7 +545,7 @@ def analyze(
 
 
 # ============================================================
-# PARSE TIMESTAMP FROM HISTORY
+# PARSE HISTORY TIMESTAMP
 # ============================================================
 
 def parse_timestamp(value):
@@ -485,12 +553,14 @@ def parse_timestamp(value):
     if not value:
         return None
 
+
     formats = [
         "%Y-%m-%dT%H:%M:%S.%fZ",
         "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%dT%H:%M:%S.%f",
         "%Y-%m-%dT%H:%M:%S"
     ]
+
 
     for fmt in formats:
 
@@ -504,11 +574,12 @@ def parse_timestamp(value):
         except Exception:
             pass
 
+
     return None
 
 
 # ============================================================
-# STATS
+# ANALYZE HISTORY
 # ============================================================
 
 def analyze_history(data):
@@ -521,6 +592,7 @@ def analyze_history(data):
 
 
     now = datetime.utcnow()
+
 
     last_hour = []
 
@@ -536,13 +608,16 @@ def analyze_history(data):
             if not t:
                 continue
 
+
             age = (
                 now - t
             ).total_seconds()
 
+
             if 0 <= age <= 3600:
 
                 last_hour.append(x)
+
 
         except Exception:
 
@@ -557,18 +632,14 @@ def analyze_history(data):
 
 
     smev = []
-
     act = []
-
     cert = []
 
 
     for x in last_hour:
 
         smev_value = x.get("smev")
-
         act_value = x.get("act")
-
         cert_value = x.get("cert")
 
 
@@ -602,9 +673,9 @@ def analyze_history(data):
             )
 
 
-    # --------------------------------------------------------
-    # DAY RECORD
-    # --------------------------------------------------------
+    # ========================================================
+    # TODAY RECORD
+    # ========================================================
 
     day_record = None
 
@@ -621,6 +692,7 @@ def analyze_history(data):
 
             if not t:
                 continue
+
 
             users = x.get(
                 "users",
@@ -640,69 +712,83 @@ def analyze_history(data):
                         "time": t.isoformat() + "Z"
                     }
 
+
         except Exception:
 
             continue
 
 
-    result = {
-        "points": len(last_hour),
+    return {
 
-        "avg_smev": (
-            round(
-                sum(smev) / len(smev),
-                2
-            )
-            if smev else None
-        ),
+        "points":
+            len(last_hour),
 
-        "max_smev": (
-            round(
-                max(smev),
-                2
-            )
-            if smev else None
-        ),
+        "avg_smev":
+            (
+                round(
+                    sum(smev) / len(smev),
+                    2
+                )
+                if smev
+                else None
+            ),
 
-        "avg_act": (
-            round(
-                sum(act) / len(act),
-                2
-            )
-            if act else None
-        ),
+        "max_smev":
+            (
+                round(
+                    max(smev),
+                    2
+                )
+                if smev
+                else None
+            ),
 
-        "max_act": (
-            round(
-                max(act),
-                2
-            )
-            if act else None
-        ),
+        "avg_act":
+            (
+                round(
+                    sum(act) / len(act),
+                    2
+                )
+                if act
+                else None
+            ),
 
-        "avg_cert": (
-            round(
-                sum(cert) / len(cert),
-                2
-            )
-            if cert else None
-        ),
+        "max_act":
+            (
+                round(
+                    max(act),
+                    2
+                )
+                if act
+                else None
+            ),
 
-        "max_cert": (
-            round(
-                max(cert),
-                2
-            )
-            if cert else None
-        ),
+        "avg_cert":
+            (
+                round(
+                    sum(cert) / len(cert),
+                    2
+                )
+                if cert
+                else None
+            ),
 
-        "all_time_record": all_time_record,
+        "max_cert":
+            (
+                round(
+                    max(cert),
+                    2
+                )
+                if cert
+                else None
+            ),
 
-        "day_record": day_record
+        "all_time_record":
+            all_time_record,
+
+        "day_record":
+            day_record
     }
-
-
-    return result
 
 
 # ============================================================
@@ -712,11 +798,15 @@ def analyze_history(data):
 def monitor():
 
     global data_cache
+
     global last_status
+
     global last_act_time
     global last_smev_time
-    global all_time_record
     global last_cert_delay
+
+    global all_time_record
+
     global last_smev_available
 
 
@@ -760,10 +850,17 @@ def monitor():
             # ==================================================
             # SMEV
             #
-            # КРИТИЧЕСКИ ВАЖНО:
+            # ВАЖНО:
             #
-            # Если сайт явно говорит, что СМЭВ не отвечает,
-            # старое значение НЕ используем.
+            # Если сайт говорит:
+            #
+            # "В течение часа не было взаимодействия с СМЭВ"
+            #
+            # или:
+            #
+            # "Последний ответ СМЭВ: -"
+            #
+            # старое значение НЕ используется.
             # ==================================================
 
             if smev_unavailable:
@@ -772,13 +869,16 @@ def monitor():
 
                 smev_time = None
 
+
             else:
 
                 last_smev_available = True
 
+
                 if smev_new:
 
                     last_smev_time = smev_new
+
 
                 smev_time = last_smev_time
 
@@ -796,7 +896,7 @@ def monitor():
 
 
             # ==================================================
-            # НЕ ХВАТАЕТ АКТИВИЗАЦИИ
+            # NO ACTIVATION
             # ==================================================
 
             if not act_time:
@@ -818,10 +918,12 @@ def monitor():
 
                 status = "SMEV_NO_DATA"
 
+
                 act_delay = (
                     datetime.now() -
                     act_time
                 ).total_seconds() / 60
+
 
                 smev_delay = None
 
@@ -858,6 +960,7 @@ def monitor():
             # ==================================================
 
             point = {
+
                 "time":
                     datetime.utcnow().isoformat() + "Z",
 
@@ -901,6 +1004,7 @@ def monitor():
             if users > all_time_record["users"]:
 
                 all_time_record = {
+
                     "users":
                         users,
 
@@ -922,6 +1026,7 @@ def monitor():
                             indent=2
                         )
 
+
                 except Exception as e:
 
                     print(
@@ -940,13 +1045,14 @@ def monitor():
                     point
                 )
 
+
                 if len(data_cache) > MAX_POINTS:
 
                     data_cache.pop(0)
 
 
             # ==================================================
-            # FILE
+            # SAVE DATA
             # ==================================================
 
             save_data(
@@ -955,12 +1061,13 @@ def monitor():
 
 
             print(
+                "POINT:",
                 point
             )
 
 
             # ==================================================
-            # TELEGRAM STATUS CHANGE
+            # TELEGRAM
             # ==================================================
 
             if status != last_status:
@@ -969,9 +1076,10 @@ def monitor():
 
                     send_alert(
                         "СМЭВ: НЕТ ДАННЫХ\n"
-                        "Сайт сообщает, что в течение часа "
-                        "не было ответа от СМЭВ."
+                        "На tah-o.ru нет взаимодействия "
+                        "с СМЭВ в течение часа."
                     )
+
 
                 elif status == "OK":
 
@@ -980,15 +1088,20 @@ def monitor():
                         "СМЭВ снова отвечает."
                     )
 
+
                 else:
 
                     smev_text = (
+
                         "{:.1f} мин".format(
                             smev_delay
                         )
+
                         if smev_delay is not None
+
                         else "нет данных"
                     )
+
 
                     send_alert(
                         "{}\nСМЭВ: {}".format(
@@ -1119,6 +1232,7 @@ def get_visits():
 
     visits += 1
 
+
     return jsonify({
         "visits": visits
     })
@@ -1129,6 +1243,7 @@ def get_visits():
 # ============================================================
 
 load_data()
+
 
 threading.Thread(
     target=monitor,
