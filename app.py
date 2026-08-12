@@ -138,9 +138,9 @@ def save_data(point):
         data.append(point)
 
 
-        if len(data) > 1000:
+        if len(data) > 1440:
 
-            data = data[-1000:]
+            data = data[-1440:]
 
 
         with open(tmp_file, "w") as f:
@@ -1159,9 +1159,7 @@ def get_data():
             data = []
 
 
-        return jsonify(
-            data[-300:]
-        )
+        return jsonify(data[-1440:])
 
 
     except Exception as e:
