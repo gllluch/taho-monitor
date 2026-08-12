@@ -1143,35 +1143,34 @@ def get_data():
 
     try:
 
-        with open(
-            DATA_FILE,
-            "r"
-        ) as f:
-
+        with open(DATA_FILE, "r") as f:
             data = json.load(f)
 
-
-        if not isinstance(
-            data,
-            list
-        ):
-
+        if not isinstance(data, list):
             data = []
 
+        now = datetime.utcnow()
+        result = []
 
-        return jsonify(data[-1440:])
+        for x in data:
 
+            t = parse_timestamp(x.get("time"))
+
+            if not t:
+                continue
+
+            age = (now - t).total_seconds()
+
+            if 0 <= age <= 86400:
+                result.append(x)
+
+        return jsonify(result)
 
     except Exception as e:
 
-        print(
-            "DATA ERROR:",
-            e
-        )
+        print("DATA ERROR:", e)
 
-        return jsonify(
-            []
-        )
+        return jsonify([])
 
 
 @app.route("/stats")
