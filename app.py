@@ -138,9 +138,9 @@ def save_data(point):
         data.append(point)
 
 
-        if len(data) > 1440:
+        if len(data) > 10080:
 
-            data = data[-1440:]
+            data = data[-10080:]
 
 
         with open(tmp_file, "w") as f:
