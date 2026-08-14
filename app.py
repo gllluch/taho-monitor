@@ -3,7 +3,7 @@ from threading import Lock
 import threading
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 import re
 import json
@@ -11,6 +11,7 @@ import os
 
 
 app = Flask(__name__)
+
 
 # ============================================================
 # CONFIG
@@ -20,6 +21,7 @@ URL = "https://tah-o.ru/activation/status"
 
 RECORD_FILE = "/opt/taho-monitor/record.json"
 DATA_FILE = "/opt/taho-monitor/data.json"
+INCIDENTS_FILE = "/opt/taho-monitor/incidents.json"
 
 MAX_POINTS = 1440
 
@@ -36,7 +38,6 @@ data_lock = Lock()
 data_cache = []
 
 last_status = None
-
 visits = 0
 
 last_act_time = None
@@ -45,16 +46,20 @@ last_cert_delay = None
 
 last_smev_available = True
 
+current_activation_incident = None
+
 
 # ============================================================
 # ALL TIME RECORD
 # ============================================================
 
 try:
+
     with open(RECORD_FILE, "r") as f:
         all_time_record = json.load(f)
 
 except Exception:
+
     all_time_record = {
         "users": 0,
         "time": "-"
@@ -62,16 +67,88 @@ except Exception:
 
 
 # ============================================================
+# INCIDENTS
+# ============================================================
+
+try:
+
+    with open(INCIDENTS_FILE, "r") as f:
+        incidents = json.load(f)
+
+    if not isinstance(incidents, list):
+        incidents = []
+
+except Exception:
+
+    incidents = []
+
+
+def save_incidents():
+
+    try:
+
+        tmp_file = INCIDENTS_FILE + ".tmp"
+
+        with open(tmp_file, "w") as f:
+
+            json.dump(
+                incidents,
+                f,
+                ensure_ascii=False,
+                indent=2
+            )
+
+        os.replace(
+            tmp_file,
+            INCIDENTS_FILE
+        )
+
+    except Exception as e:
+
+        print(
+            "INCIDENT SAVE ERROR:",
+            e
+        )
+
+
+def restore_current_incident():
+
+    global current_activation_incident
+
+    current_activation_incident = None
+
+    for incident in reversed(incidents):
+
+        if incident.get("status") == "Действующий":
+
+            current_activation_incident = incident
+
+            print(
+                "RESTORED INCIDENT:",
+                incident
+            )
+
+            break
+
+
+# ============================================================
 # RAW STATUS
 # ============================================================
 
 raw_status = {
+
     "activation": "нет данных",
+
     "smev": "нет данных",
+
     "users": 0,
+
     "users_avg": 0,
+
     "processing": 0,
+
     "cert": None,
+
     "smev_available": False
 }
 
@@ -138,9 +215,10 @@ def save_data(point):
         data.append(point)
 
 
-        if len(data) > 10080:
+        # Оставляем сутки истории
+        if len(data) > 1440:
 
-            data = data[-10080:]
+            data = data[-1440:]
 
 
         with open(tmp_file, "w") as f:
@@ -173,6 +251,7 @@ def save_data(point):
 def load_data():
 
     global data_cache
+    global last_act_time
 
     try:
 
@@ -189,17 +268,72 @@ def load_data():
                 data = []
 
 
-        if isinstance(data, list):
-
-            with data_lock:
-
-                data_cache = data[-MAX_POINTS:]
+        if not isinstance(data, list):
+            return
 
 
-            print(
-                "LOADED:",
-                len(data_cache)
-            )
+        with data_lock:
+
+            data_cache = data[-MAX_POINTS:]
+
+
+        print(
+            "LOADED:",
+            len(data_cache)
+        )
+
+
+        # ----------------------------------------------------
+        # Восстанавливаем последнее время активации
+        #
+        # Это важно после перезапуска сервера.
+        # Из последней точки:
+        #
+        # point.time - point.act = время активации
+        # ----------------------------------------------------
+
+        if data_cache:
+
+            last_point = data_cache[-1]
+
+            act_delay = last_point.get("act")
+
+            point_time = last_point.get("time")
+
+
+            if (
+                isinstance(
+                    act_delay,
+                    (int, float)
+                )
+                and point_time
+            ):
+
+                try:
+
+                    point_dt = datetime.strptime(
+                        point_time,
+                        "%Y-%m-%dT%H:%M:%S.%fZ"
+                    )
+
+                    last_act_time = (
+                        point_dt -
+                        timedelta(
+                            minutes=act_delay
+                        )
+                    )
+
+                    print(
+                        "RESTORED LAST ACTIVATION:",
+                        last_act_time
+                    )
+
+                except Exception as e:
+
+                    print(
+                        "ACTIVATION RESTORE ERROR:",
+                        e
+                    )
 
 
     except Exception as e:
@@ -256,11 +390,7 @@ def parse_times(html):
 
 
     # ========================================================
-    # SMEV: ЯВНО НЕТ ВЗАИМОДЕЙСТВИЯ
-    #
-    # Реальная фраза на сайте:
-    #
-    # "В течение часа не было взаимодействия с СМЭВ"
+    # SMEV UNAVAILABLE
     # ========================================================
 
     no_smev_interaction = re.search(
@@ -270,20 +400,13 @@ def parse_times(html):
     )
 
 
-    # ========================================================
-    # SMEV: ПОСЛЕДНИЙ ОТВЕТ = -
-    # ========================================================
-
     smev_response_dash = re.search(
-        r"Последний ответ СМЭВ:\s*(?:<[^>]+>\s*)?-\s*",
+        r"Последний ответ СМЭВ:\s*"
+        r"(?:<[^>]+>\s*)?-\s*",
         html,
         re.IGNORECASE | re.DOTALL
     )
 
-
-    # ========================================================
-    # SMEV UNAVAILABLE
-    # ========================================================
 
     smev_unavailable = (
         no_smev_interaction is not None
@@ -328,7 +451,7 @@ def parse_times(html):
 
 
     # ========================================================
-    # INITIAL VALUES
+    # VALUES
     # ========================================================
 
     act_time = None
@@ -345,7 +468,7 @@ def parse_times(html):
 
 
     # ========================================================
-    # ACTIVATION TIME
+    # ACTIVATION
     # ========================================================
 
     if act_match:
@@ -365,7 +488,7 @@ def parse_times(html):
 
 
     # ========================================================
-    # SMEV TIME
+    # SMEV
     # ========================================================
 
     if smev_match:
@@ -424,26 +547,6 @@ def parse_times(html):
 
 
     # ========================================================
-    # ЕСЛИ СМЭВ НЕ ОТВЕЧАЕТ
-    #
-    # Если есть последнее время ответа, можно показать,
-    # сколько прошло с него для processing.
-    # ========================================================
-
-    if smev_unavailable and smev_time:
-
-        processing_minutes = max(
-            0,
-            int(
-                (
-                    datetime.now() -
-                    smev_time
-                ).total_seconds() / 60
-            )
-        )
-
-
-    # ========================================================
     # CERTIFICATE
     # ========================================================
 
@@ -461,17 +564,31 @@ def parse_times(html):
 
 
     # ========================================================
-    # RAW STATUS
+    # RAW
     # ========================================================
 
     raw_status = {
-        "activation": act_raw,
-        "smev": smev_raw,
-        "users": users,
-        "users_avg": users_avg,
-        "processing": processing_minutes,
-        "cert": cert_delay,
-        "smev_available": not smev_unavailable
+
+        "activation":
+            act_raw,
+
+        "smev":
+            smev_raw,
+
+        "users":
+            users,
+
+        "users_avg":
+            users_avg,
+
+        "processing":
+            processing_minutes,
+
+        "cert":
+            cert_delay,
+
+        "smev_available":
+            not smev_unavailable
     }
 
 
@@ -500,7 +617,7 @@ def parse_times(html):
 
 
 # ============================================================
-# ANALYZE
+# ANALYZE CURRENT VALUES
 # ============================================================
 
 def analyze(
@@ -545,7 +662,7 @@ def analyze(
 
 
 # ============================================================
-# PARSE HISTORY TIMESTAMP
+# TIMESTAMP
 # ============================================================
 
 def parse_timestamp(value):
@@ -555,9 +672,13 @@ def parse_timestamp(value):
 
 
     formats = [
+
         "%Y-%m-%dT%H:%M:%S.%fZ",
+
         "%Y-%m-%dT%H:%M:%SZ",
+
         "%Y-%m-%dT%H:%M:%S.%f",
+
         "%Y-%m-%dT%H:%M:%S"
     ]
 
@@ -579,7 +700,176 @@ def parse_timestamp(value):
 
 
 # ============================================================
-# ANALYZE HISTORY
+# INCIDENT DURATION
+# ============================================================
+
+def format_duration(
+    start,
+    end
+):
+
+    seconds = (
+        end - start
+    ).total_seconds()
+
+
+    if seconds < 0:
+        seconds = 0
+
+
+    hours = int(
+        seconds // 3600
+    )
+
+    minutes = int(
+        (seconds % 3600) // 60
+    )
+
+
+    return "{} ч {} мин".format(
+        hours,
+        minutes
+    )
+
+
+# ============================================================
+# UPDATE ACTIVATION INCIDENT
+# ============================================================
+
+def update_activation_incident(
+    act_time,
+    act_delay
+):
+
+    global current_activation_incident
+    global incidents
+
+
+    if not act_time:
+        return
+
+
+    # ========================================================
+    # АКТИВАЦИЯ В НОРМЕ
+    # ========================================================
+
+    if act_delay <= 60:
+
+        if current_activation_incident is not None:
+
+            incident = (
+                current_activation_incident
+            )
+
+
+            end_time = act_time
+
+
+            try:
+
+                start_time = datetime.fromisoformat(
+                    incident["start"]
+                )
+
+            except Exception:
+
+                start_time = (
+                    end_time -
+                    timedelta(minutes=60)
+                )
+
+
+            incident["end"] = (
+                end_time.isoformat()
+            )
+
+            incident["status"] = "Завершен"
+
+            incident["duration"] = (
+                format_duration(
+                    start_time,
+                    end_time
+                )
+            )
+
+
+            current_activation_incident = None
+
+
+            save_incidents()
+
+
+            print(
+                "ACTIVATION INCIDENT CLOSED:",
+                incident
+            )
+
+
+        return
+
+
+    # ========================================================
+    # ИНЦИДЕНТ УЖЕ ЕСТЬ
+    # ========================================================
+
+    if current_activation_incident is not None:
+
+        return
+
+
+    # ========================================================
+    # НАЧАЛО ИНЦИДЕНТА
+    #
+    # Инцидент начинается через 60 минут после
+    # последней успешной активации.
+    # ========================================================
+
+    incident_start = (
+        act_time +
+        timedelta(minutes=60)
+    )
+
+
+    incident = {
+
+        "start":
+            incident_start.isoformat(),
+
+        "end":
+            None,
+
+        "status":
+            "Действующий",
+
+        "duration":
+            format_duration(
+                incident_start,
+                datetime.now()
+            )
+    }
+
+
+    incidents.append(
+        incident
+    )
+
+
+    current_activation_incident = (
+        incident
+    )
+
+
+    save_incidents()
+
+
+    print(
+        "ACTIVATION INCIDENT STARTED:",
+        incident
+    )
+
+
+# ============================================================
+# HISTORY STATS
 # ============================================================
 
 def analyze_history(data):
@@ -638,43 +928,38 @@ def analyze_history(data):
 
     for x in last_hour:
 
-        smev_value = x.get("smev")
-        act_value = x.get("act")
-        cert_value = x.get("cert")
-
-
         if isinstance(
-            smev_value,
+            x.get("smev"),
             (int, float)
         ):
 
             smev.append(
-                smev_value
+                x["smev"]
             )
 
 
         if isinstance(
-            act_value,
+            x.get("act"),
             (int, float)
         ):
 
             act.append(
-                act_value
+                x["act"]
             )
 
 
         if isinstance(
-            cert_value,
+            x.get("cert"),
             (int, float)
         ):
 
             cert.append(
-                cert_value
+                x["cert"]
             )
 
 
     # ========================================================
-    # TODAY RECORD
+    # DAY RECORD
     # ========================================================
 
     day_record = None
@@ -708,8 +993,12 @@ def analyze_history(data):
                 ):
 
                     day_record = {
-                        "users": users,
-                        "time": t.isoformat() + "Z"
+
+                        "users":
+                            users,
+
+                        "time":
+                            t.isoformat() + "Z"
                     }
 
 
@@ -806,7 +1095,6 @@ def monitor():
     global last_cert_delay
 
     global all_time_record
-
     global last_smev_available
 
 
@@ -836,7 +1124,7 @@ def monitor():
 
 
             # ==================================================
-            # ACTIVATION FALLBACK
+            # ACTIVATION
             # ==================================================
 
             if act_new:
@@ -849,18 +1137,6 @@ def monitor():
 
             # ==================================================
             # SMEV
-            #
-            # ВАЖНО:
-            #
-            # Если сайт говорит:
-            #
-            # "В течение часа не было взаимодействия с СМЭВ"
-            #
-            # или:
-            #
-            # "Последний ответ СМЭВ: -"
-            #
-            # старое значение НЕ используется.
             # ==================================================
 
             if smev_unavailable:
@@ -869,22 +1145,19 @@ def monitor():
 
                 smev_time = None
 
-
             else:
 
                 last_smev_available = True
-
 
                 if smev_new:
 
                     last_smev_time = smev_new
 
-
                 smev_time = last_smev_time
 
 
             # ==================================================
-            # CERTIFICATE FALLBACK
+            # CERTIFICATE
             # ==================================================
 
             if cert_new is not None:
@@ -911,19 +1184,32 @@ def monitor():
 
 
             # ==================================================
+            # ACTIVATION DELAY
+            # ==================================================
+
+            act_delay = (
+                datetime.now() -
+                act_time
+            ).total_seconds() / 60
+
+
+            # ==================================================
+            # INCIDENT
+            # ==================================================
+
+            update_activation_incident(
+                act_time,
+                act_delay
+            )
+
+
+            # ==================================================
             # SMEV UNAVAILABLE
             # ==================================================
 
             if smev_unavailable:
 
                 status = "SMEV_NO_DATA"
-
-
-                act_delay = (
-                    datetime.now() -
-                    act_time
-                ).total_seconds() / 60
-
 
                 smev_delay = None
 
@@ -1052,7 +1338,7 @@ def monitor():
 
 
             # ==================================================
-            # SAVE DATA
+            # FILE
             # ==================================================
 
             save_data(
@@ -1143,32 +1429,61 @@ def get_data():
 
     try:
 
-        with open(DATA_FILE, "r") as f:
+        with open(
+            DATA_FILE,
+            "r"
+        ) as f:
+
             data = json.load(f)
 
-        if not isinstance(data, list):
+
+        if not isinstance(
+            data,
+            list
+        ):
+
             data = []
 
+
         now = datetime.utcnow()
+
         result = []
+
+
+        # Последние 24 часа именно по времени,
+        # а не просто последние N точек.
 
         for x in data:
 
-            t = parse_timestamp(x.get("time"))
+            t = parse_timestamp(
+                x.get("time")
+            )
 
             if not t:
                 continue
 
-            age = (now - t).total_seconds()
+
+            age = (
+                now - t
+            ).total_seconds()
+
 
             if 0 <= age <= 86400:
+
                 result.append(x)
 
-        return jsonify(result)
+
+        return jsonify(
+            result
+        )
+
 
     except Exception as e:
 
-        print("DATA ERROR:", e)
+        print(
+            "DATA ERROR:",
+            e
+        )
 
         return jsonify([])
 
@@ -1222,6 +1537,69 @@ def raw():
     )
 
 
+# ============================================================
+# INCIDENTS API
+# ============================================================
+
+@app.route("/incidents")
+def get_incidents():
+
+    result = []
+
+    now = datetime.now()
+
+
+    for incident in incidents:
+
+        item = dict(
+            incident
+        )
+
+
+        try:
+
+            start = datetime.fromisoformat(
+                item["start"]
+            )
+
+        except Exception:
+
+            result.append(item)
+
+            continue
+
+
+        if item.get("end"):
+
+            try:
+
+                end = datetime.fromisoformat(
+                    item["end"]
+                )
+
+            except Exception:
+
+                end = now
+
+        else:
+
+            end = now
+
+
+        item["duration"] = format_duration(
+            start,
+            end
+        )
+
+
+        result.append(item)
+
+
+    return jsonify(
+        result
+    )
+
+
 @app.route("/visits")
 def get_visits():
 
@@ -1240,6 +1618,8 @@ def get_visits():
 # ============================================================
 
 load_data()
+
+restore_current_incident()
 
 
 threading.Thread(
