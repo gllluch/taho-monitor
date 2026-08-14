@@ -1,24 +1,38 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
+
     <meta charset="UTF-8">
+
     <title>Мониторинг СМЭВ</title>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
+
 
 <body style="
     font-family:sans-serif;
     margin:20px;
 ">
 
-<h2>СМЭВ / Активизации</h2>
 
-<h3 id="status">Загрузка...</h3>
+<h2>
+    СМЭВ / Активизации
+</h2>
+
+
+<h3 id="status">
+    Загрузка...
+</h3>
+
 
 <div id="stats" style="
     margin-top:20px;
-"></div>
+">
+</div>
+
 
 <div id="raw" style="
     margin-top:20px;
@@ -26,27 +40,163 @@
     background:#f5f5f5;
     border-radius:8px;
     font-size:14px;
-"></div>
+">
+</div>
+
+
+<!-- ======================================================
+     MAIN GRAPH
+======================================================= -->
 
 <div style="
-    position: relative;
-    height: 55vh;
-    width: 100%;
+    position:relative;
+    height:55vh;
+    width:100%;
 ">
+
     <canvas id="chart"></canvas>
+
 </div>
-<h3 style="margin-top:30px;">
+
+
+<!-- ======================================================
+     USERS GRAPH
+======================================================= -->
+
+<h3 style="
+    margin-top:30px;
+">
+
     Активность пользователей Tah-O
+
 </h3>
 
+
 <div style="
-    position: relative;
-    height: 25vh;
-    width: 100%;
+    position:relative;
+    height:25vh;
+    width:100%;
 ">
+
     <canvas id="usersChart"></canvas>
-</div>    
-<!-- visits -->
+
+</div>
+
+
+<!-- ======================================================
+     INCIDENTS
+======================================================= -->
+
+<div style="
+    margin-top:35px;
+    margin-bottom:30px;
+">
+
+
+    <h3 style="
+        margin-bottom:15px;
+    ">
+
+        Инциденты
+
+    </h3>
+
+
+    <div style="
+        overflow-x:auto;
+    ">
+
+
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            font-size:13px;
+        ">
+
+
+            <thead>
+
+                <tr style="
+                    border-bottom:2px solid #ddd;
+                    text-align:left;
+                ">
+
+
+                    <th style="
+                        padding:9px;
+                    ">
+
+                        Время начала
+
+                    </th>
+
+
+                    <th style="
+                        padding:9px;
+                    ">
+
+                        Время конца
+
+                    </th>
+
+
+                    <th style="
+                        padding:9px;
+                    ">
+
+                        Длительность
+
+                    </th>
+
+
+                    <th style="
+                        padding:9px;
+                    ">
+
+                        Статус
+
+                    </th>
+
+
+                </tr>
+
+            </thead>
+
+
+            <tbody id="incidentsBody">
+
+
+                <tr>
+
+                    <td colspan="4"
+                        style="
+                            padding:12px;
+                            color:#999;
+                        ">
+
+                        Загрузка...
+
+                    </td>
+
+                </tr>
+
+
+            </tbody>
+
+
+        </table>
+
+
+    </div>
+
+
+</div>
+
+
+<!-- ======================================================
+     VISITS
+======================================================= -->
+
 <div id="visits" style="
     position:fixed;
     bottom:5px;
@@ -54,394 +204,1170 @@
     font-size:11px;
     color:#999;
 ">
+
     visits: ...
+
 </div>
+
 
 <script>
 
+
 let chart;
+
 let usersChart;
 
-    
+
+/* ========================================================
+   COLOR
+======================================================== */
+
 function getColor(value) {
-    if (value > 60) return 'red';
-    if (value > 30) return 'orange';
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
+        return '#999';
+
+    }
+
+
+    if (value > 60)
+        return 'red';
+
+
+    if (value > 30)
+        return 'orange';
+
 
     return 'green';
+
 }
 
 
-// ---------------- STATS ----------------
+/* ========================================================
+   LOCAL TIME
+======================================================== */
+
+function localTime(str) {
+
+    if (
+        !str ||
+        str === '-'
+    ) {
+
+        return '-';
+
+    }
+
+
+    const d =
+        new Date(str);
+
+
+    if (
+        isNaN(
+            d.getTime()
+        )
+    ) {
+
+        return str;
+
+    }
+
+
+    return d.toLocaleString(
+        [],
+        {
+            year:'numeric',
+            month:'2-digit',
+            day:'2-digit',
+            hour:'2-digit',
+            minute:'2-digit'
+        }
+    );
+
+}
+
+
+/* ========================================================
+   STATS
+======================================================== */
+
 async function loadStats() {
+
     try {
 
-        const res = await fetch('/stats');
-        const s = await res.json();
-        const dataRes = await fetch('/data');
-        const data = await dataRes.json();
+        const res =
+            await fetch(
+                '/stats'
+            );
 
-       const lastUsers =
+
+        const s =
+            await res.json();
+
+
+        const dataRes =
+            await fetch(
+                '/data'
+            );
+
+
+        const data =
+            await dataRes.json();
+
+
+        const lastUsers =
             data.length
-                ? (data[data.length - 1].users || 0)
+                ? (
+                    data[
+                        data.length - 1
+                    ].users || 0
+                )
                 : 0;
+
 
         const lastUsersAvg =
             data.length
-                ? (data[data.length - 1].users_avg || 0)
+                ? (
+                    data[
+                        data.length - 1
+                    ].users_avg || 0
+                )
                 : 0;
 
-        document.getElementById('stats').innerHTML = `
+
+        document.getElementById(
+            'stats'
+        ).innerHTML = `
+
             <div style="
                 display:flex;
+                flex-wrap:wrap;
                 gap:40px;
                 margin-top:10px;
             ">
 
-                <div>
-                    <b>СМЭВ</b><br>
-                    Средний: ${s.avg_smev} мин<br>
-                    Макс: ${s.max_smev} мин
-                </div>
 
                 <div>
+
+                    <b>СМЭВ</b><br>
+
+                    Средний:
+                    ${s.avg_smev ?? '—'} мин<br>
+
+                    Макс:
+                    ${s.max_smev ?? '—'} мин
+
+                </div>
+
+
+                <div>
+
                     <b>Активации</b><br>
-                    Средний: ${s.avg_act} мин<br>
-                    Макс: ${s.max_act} мин
+
+                    Средний:
+                    ${s.avg_act ?? '—'} мин<br>
+
+                    Макс:
+                    ${s.max_act ?? '—'} мин
+
                 </div>
-                    <div>
-                    <div>
-                        <b>Пользователи</b><br>
-                    
-                        Сейчас:
-                        ${lastUsers} / ${lastUsersAvg}<br><br>
-                    
-                        Рекорд суток:<br>
-                        ${s.day_record?.users || 0}
-                       ${localTime(s.day_record?.time)}<br><br>
-                    
-                        Рекорд за всё время:<br>
-                        ${s.all_time_record?.users || 0}
-                        (${localTime(s.all_time_record?.time)})
-                    </div>
+
+
+                <div>
+
+                    <b>Сертификат</b><br>
+
+                    Средний:
+                    ${s.avg_cert ?? '—'} мин<br>
+
+                    Макс:
+                    ${s.max_cert ?? '—'} мин
+
                 </div>
+
+
+                <div>
+
+                    <b>Пользователи</b><br>
+
+                    Сейчас:
+                    ${lastUsers}
+                    /
+                    ${lastUsersAvg}
+
+                    <br><br>
+
+                    Рекорд суток:<br>
+
+                    ${s.day_record?.users || 0}
+
+                    ${
+                        localTime(
+                            s.day_record?.time
+                        )
+                    }
+
+                    <br><br>
+
+                    Рекорд за всё время:<br>
+
+                    ${s.all_time_record?.users || 0}
+
+                    (
+                    ${
+                        localTime(
+                            s.all_time_record?.time
+                        )
+                    }
+                    )
+
+                </div>
+
+
             </div>
+
         `;
 
+
     } catch(e) {
-        console.log("STATS ERROR", e);
-    }
-}
- //------------------------------------------   
-function localTime(str) {
 
-    if (!str || str === '-') {
-        return '-';
+        console.log(
+            "STATS ERROR",
+            e
+        );
+
     }
 
-    const d = new Date(str);
-
-    if (isNaN(d.getTime())) {
-        return str;
-    }
-
-    return d.toLocaleString([], {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
 }
 
-// ---------------- RAW ----------------
+
+/* ========================================================
+   RAW
+======================================================== */
+
 async function loadRaw() {
 
     try {
 
-        const res = await fetch('/raw');
-        const r = await res.json();
+        const res =
+            await fetch(
+                '/raw'
+            );
+
+
+        const r =
+            await res.json();
+
 
         function convertTime(str) {
 
-            if (!str || str === "нет данных") {
+            if (
+                !str ||
+                str === "нет данных"
+            ) {
+
                 return str;
+
             }
 
-            // "2026-04-12 15:40:00"
-            const iso = str.replace(' ', 'T') + '+03:00';
 
-            const d = new Date(iso);
+            const iso =
+                str.replace(
+                    ' ',
+                    'T'
+                ) +
+                '+03:00';
 
-            if (isNaN(d.getTime())) {
+
+            const d =
+                new Date(
+                    iso
+                );
+
+
+            if (
+                isNaN(
+                    d.getTime()
+                )
+            ) {
+
                 return str;
+
             }
 
-            return d.toLocaleString([], {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
+
+            return d.toLocaleString(
+                [],
+                {
+                    year:'numeric',
+                    month:'2-digit',
+                    day:'2-digit',
+                    hour:'2-digit',
+                    minute:'2-digit',
+                    second:'2-digit'
+                }
+            );
+
         }
 
-        document.getElementById('raw').innerHTML = `
-            <b>Данные источника:</b><br><br>
 
-            Последняя активизация:<br>
-            ${convertTime(r.activation)}<br><br>
+        document.getElementById(
+            'raw'
+        ).innerHTML = `
 
-            Последний ответ СМЭВ:<br>
-            ${convertTime(r.smev)}
+            <b>
+                Данные источника:
+            </b>
+
+            <br><br>
+
+
+            Последняя активизация:
+
+            <br>
+
+            ${
+                convertTime(
+                    r.activation
+                )
+            }
+
+
+            <br><br>
+
+
+            Последний ответ СМЭВ:
+
+            <br>
+
+            ${
+                convertTime(
+                    r.smev
+                )
+            }
+
+
+            <br><br>
+
+
+            СМЭВ:
+
+            ${
+                r.smev_available
+                    ? 'доступен'
+                    : 'нет данных'
+            }
+
         `;
 
+
     } catch(e) {
-        console.log("RAW ERROR", e);
+
+        console.log(
+            "RAW ERROR",
+            e
+        );
+
     }
+
 }
 
-// ---------------- MAIN GRAPH ----------------
+
+/* ========================================================
+   MAIN GRAPH
+======================================================== */
+
 async function load() {
 
     try {
 
-        const res = await fetch('/data');
-        const data = await res.json();
+        const res =
+            await fetch(
+                '/data'
+            );
 
-        if (!data || data.length === 0) return;
 
-        const labels = data.map(x => {
+        const data =
+            await res.json();
 
-    // старый формат HH:MM
-    if (typeof x.time === 'string' && x.time.length <= 5) {
-        return x.time;
-    }
 
-    // новый ISO формат
-    const d = new Date(x.time);
+        if (
+            !data ||
+            data.length === 0
+        ) {
 
-    if (isNaN(d.getTime())) {
-        return "??";
-    }
-
-    return d.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-});
-
-   
-        const smev = data.map(x => x.smev);
-        const act = data.map(x => x.act);
-        const cert = data.map(x => x.cert || null);
-        const processing = data.map(
-            x => x.processing || 0
-        );
-
-        const last = data[data.length - 1];
-
-        const statusEl = document.getElementById("status");
-
-        if (statusEl && last) {
-
-            statusEl.innerText =
-                `Статус: ${last.status} | СМЭВ: ${last.smev} мин`;
-
-            statusEl.style.color = getColor(last.smev);
-        }
-
-       if (chart) {
-
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = smev;
-            chart.data.datasets[1].data = act;
-            chart.data.datasets[2].data = processing;
-            chart.data.datasets[3].data = cert;
-        
-            chart.update();
-    
             return;
+
         }
 
-        chart = new Chart(
-            document.getElementById('chart'),
-            {
-                type: 'line',
 
-                data: {
-                    labels: labels,
+        const labels =
+            data.map(
+                x => {
 
-                    datasets: [
-                        {
-                            label: 'время с последнего ответа СМЭВ (мин)',
-                            data: smev,
-                            borderColor: 'red',
-                            borderWidth: 2,
-                            tension: 0.2
-                        },
+                    if (
+                        typeof x.time === 'string' &&
+                        x.time.length <= 5
+                    ) {
 
-                        {
-                            label: 'Время с последней завершенной активации (мин)',
-                            data: act,
-                            borderColor: 'green',
-                            borderWidth: 2,
-                            tension: 0.2
-                        },
+                        return x.time;
 
-                        {
-                            label: 'Средняя обработка запросов СМЭВ (мин)',
-                            data: processing,
-                            borderColor: 'purple',
-                            borderWidth: 2,
-                            tension: 0.2
-                        },
-                        {
-                            label: 'Сертификат (мин)',
-                            data: cert,
-                            borderColor: 'green',
-                            borderWidth: 2,
-                            tension: 0.2
-                        }
-                    ]
-                },
-
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    
-
-                    scales: {
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Задержка (минуты)'
-                            }
-                        },
-
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Время'
-                            }
-                        }
                     }
+
+
+                    const d =
+                        new Date(
+                            x.time
+                        );
+
+
+                    if (
+                        isNaN(
+                            d.getTime()
+                        )
+                    ) {
+
+                        return '??';
+
+                    }
+
+
+                    return d.toLocaleTimeString(
+                        [],
+                        {
+                            hour:'2-digit',
+                            minute:'2-digit'
+                        }
+                    );
+
                 }
+            );
+
+
+        const smev =
+            data.map(
+                x => x.smev
+            );
+
+
+        const act =
+            data.map(
+                x => x.act
+            );
+
+
+        const cert =
+            data.map(
+                x => x.cert
+            );
+
+
+        const processing =
+            data.map(
+                x =>
+                    x.processing || 0
+            );
+
+
+        const last =
+            data[
+                data.length - 1
+            ];
+
+
+        const statusEl =
+            document.getElementById(
+                "status"
+            );
+
+
+        if (
+            statusEl &&
+            last
+        ) {
+
+
+            if (
+                last.status ===
+                'SMEV_NO_DATA'
+            ) {
+
+                statusEl.innerText =
+                    'Статус: СМЭВ — НЕТ ДАННЫХ';
+
+                statusEl.style.color =
+                    'red';
+
+            } else {
+
+                statusEl.innerText =
+                    `Статус: ${last.status} | ` +
+                    `СМЭВ: ${
+                        last.smev ??
+                        'нет данных'
+                    } мин`;
+
+                statusEl.style.color =
+                    getColor(
+                        last.smev
+                    );
+
             }
-        );
+
+        }
+
+
+        /* --------------------------------------------------
+           UPDATE EXISTING CHART
+        -------------------------------------------------- */
+
+        if (chart) {
+
+            chart.data.labels =
+                labels;
+
+
+            chart.data.datasets[0].data =
+                smev;
+
+
+            chart.data.datasets[1].data =
+                act;
+
+
+            chart.data.datasets[2].data =
+                processing;
+
+
+            chart.data.datasets[3].data =
+                cert;
+
+
+            chart.update();
+
+            return;
+
+        }
+
+
+        /* --------------------------------------------------
+           CREATE CHART
+        -------------------------------------------------- */
+
+        chart =
+            new Chart(
+
+                document.getElementById(
+                    'chart'
+                ),
+
+                {
+
+                    type:'line',
+
+
+                    data:{
+
+                        labels:labels,
+
+
+                        datasets:[
+
+                            {
+
+                                label:
+                                    'Время с последнего ответа СМЭВ (мин)',
+
+                                data:smev,
+
+                                borderColor:'red',
+
+                                borderWidth:2,
+
+                                tension:0.2
+
+                            },
+
+
+                            {
+
+                                label:
+                                    'Время с последней завершенной активации (мин)',
+
+                                data:act,
+
+                                borderColor:'green',
+
+                                borderWidth:2,
+
+                                tension:0.2
+
+                            },
+
+
+                            {
+
+                                label:
+                                    'Средняя обработка запросов СМЭВ (мин)',
+
+                                data:processing,
+
+                                borderColor:'purple',
+
+                                borderWidth:2,
+
+                                tension:0.2
+
+                            },
+
+
+                            {
+
+                                label:
+                                    'Сертификат (мин)',
+
+                                data:cert,
+
+                                borderColor:'blue',
+
+                                borderWidth:2,
+
+                                tension:0.2
+
+                            }
+
+                        ]
+
+                    },
+
+
+                    options:{
+
+                        responsive:true,
+
+                        maintainAspectRatio:false,
+
+                        animation:false,
+
+
+                        scales:{
+
+                            y:{
+
+                                title:{
+
+                                    display:true,
+
+                                    text:
+                                        'Задержка (минуты)'
+
+                                }
+
+                            },
+
+
+                            x:{
+
+                                title:{
+
+                                    display:true,
+
+                                    text:'Время'
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            );
+
 
     } catch(e) {
-        console.log("LOAD ERROR", e);
+
+        console.log(
+            "LOAD ERROR",
+            e
+        );
+
     }
+
 }
 
-//-----------------Users GRAPH---------------
-    async function loadUsersGraph() {
+
+/* ========================================================
+   USERS GRAPH
+======================================================== */
+
+async function loadUsersGraph() {
 
     try {
 
-        const res = await fetch('/data');
-        const data = await res.json();
+        const res =
+            await fetch(
+                '/data'
+            );
 
-        const labels = data.map(x => {
 
-            if (typeof x.time === 'string' && x.time.length <= 5) {
-                return x.time;
-            }
+        const data =
+            await res.json();
 
-            const d = new Date(x.time);
 
-            return d.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+        if (
+            !data ||
+            data.length === 0
+        ) {
 
-        });
+            return;
 
-        const users = data.map(x => x.users || 0);
-        const usersAvg = data.map(x => x.users_avg || 0);
+        }
+
+
+        const labels =
+            data.map(
+                x => {
+
+                    if (
+                        typeof x.time === 'string' &&
+                        x.time.length <= 5
+                    ) {
+
+                        return x.time;
+
+                    }
+
+
+                    const d =
+                        new Date(
+                            x.time
+                        );
+
+
+                    return d.toLocaleTimeString(
+                        [],
+                        {
+                            hour:'2-digit',
+                            minute:'2-digit'
+                        }
+                    );
+
+                }
+            );
+
+
+        const users =
+            data.map(
+                x =>
+                    x.users || 0
+            );
+
+
+        const usersAvg =
+            data.map(
+                x =>
+                    x.users_avg || 0
+            );
+
 
         if (usersChart) {
 
-            usersChart.data.labels = labels;
-            usersChart.data.datasets[0].data = users;
-            usersChart.data.datasets[1].data = usersAvg;
+            usersChart.data.labels =
+                labels;
+
+
+            usersChart.data.datasets[0].data =
+                users;
+
+
+            usersChart.data.datasets[1].data =
+                usersAvg;
+
 
             usersChart.update();
 
             return;
+
         }
 
-        usersChart = new Chart(
-            document.getElementById('usersChart'),
-            {
-                type: 'line',
 
-                data: {
-                    labels: labels,
+        usersChart =
+            new Chart(
 
-                    datasets: [
-                        {
-                            label: 'Текущая активность',
-                            data: users,
-                            borderWidth: 2,
-                            tension: 0.2
-                        },
-                    
-                        {
-                            label: 'Средняя активность',
-                            data: usersAvg,
-                            borderDash: [5,5],
-                            borderWidth: 2,
-                            tension: 0.2
-                        }
-                    ]
-                    
-                },
+                document.getElementById(
+                    'usersChart'
+                ),
 
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false
+                {
+
+                    type:'line',
+
+
+                    data:{
+
+                        labels:labels,
+
+
+                        datasets:[
+
+                            {
+
+                                label:
+                                    'Текущая активность',
+
+                                data:users,
+
+                                borderWidth:2,
+
+                                tension:0.2
+
+                            },
+
+
+                            {
+
+                                label:
+                                    'Средняя активность',
+
+                                data:usersAvg,
+
+                                borderDash:[
+                                    5,
+                                    5
+                                ],
+
+                                borderWidth:2,
+
+                                tension:0.2
+
+                            }
+
+                        ]
+
+                    },
+
+
+                    options:{
+
+                        responsive:true,
+
+                        maintainAspectRatio:false,
+
+                        animation:false
+
+                    }
+
                 }
-            }
-        );
+
+            );
+
 
     } catch(e) {
-        console.log("USERS GRAPH ERROR", e);
+
+        console.log(
+            "USERS GRAPH ERROR",
+            e
+        );
+
     }
+
 }
-// ---------------- VISITS ----------------
+
+
+/* ========================================================
+   INCIDENTS
+======================================================== */
+
+function formatIncidentTime(
+    value
+) {
+
+    if (!value) {
+
+        return '—';
+
+    }
+
+
+    const d =
+        new Date(
+            value
+        );
+
+
+    if (
+        isNaN(
+            d.getTime()
+        )
+    ) {
+
+        return value;
+
+    }
+
+
+    return d.toLocaleString(
+        [],
+        {
+            day:'2-digit',
+            month:'2-digit',
+            year:'numeric',
+            hour:'2-digit',
+            minute:'2-digit'
+        }
+    );
+
+}
+
+
+async function loadIncidents() {
+
+    try {
+
+        const res =
+            await fetch(
+                '/incidents'
+            );
+
+
+        const data =
+            await res.json();
+
+
+        const body =
+            document.getElementById(
+                'incidentsBody'
+            );
+
+
+        if (
+            !data ||
+            data.length === 0
+        ) {
+
+            body.innerHTML = `
+
+                <tr>
+
+                    <td
+                        colspan="4"
+                        style="
+                            padding:12px;
+                            color:#999;
+                        "
+                    >
+
+                        Инцидентов
+                        длительностью более часа нет
+
+                    </td>
+
+                </tr>
+
+            `;
+
+            return;
+
+        }
+
+
+        const sorted =
+            [...data].reverse();
+
+
+        body.innerHTML =
+            sorted.map(
+                incident => {
+
+
+                    const active =
+                        incident.status ===
+                        'Действующий';
+
+
+                    return `
+
+                        <tr style="
+                            border-bottom:1px solid #eee;
+                        ">
+
+
+                            <td style="
+                                padding:9px;
+                            ">
+
+                                ${
+                                    formatIncidentTime(
+                                        incident.start
+                                    )
+                                }
+
+                            </td>
+
+
+                            <td style="
+                                padding:9px;
+                            ">
+
+                                ${
+                                    incident.end
+                                        ? formatIncidentTime(
+                                            incident.end
+                                        )
+                                        : '—'
+                                }
+
+                            </td>
+
+
+                            <td style="
+                                padding:9px;
+                                font-weight:600;
+                            ">
+
+                                ${
+                                    incident.duration ||
+                                    '—'
+                                }
+
+                            </td>
+
+
+                            <td style="
+                                padding:9px;
+                                font-weight:600;
+                                color:${
+                                    active
+                                        ? '#d93025'
+                                        : '#555'
+                                };
+                            ">
+
+                                ${
+                                    active
+                                        ? '🔴 Действующий'
+                                        : '✓ Завершен'
+                                }
+
+                            </td>
+
+
+                        </tr>
+
+                    `;
+
+                }
+            ).join('');
+
+
+    } catch(e) {
+
+        console.log(
+            "INCIDENTS ERROR",
+            e
+        );
+
+    }
+
+}
+
+
+/* ========================================================
+   VISITS
+======================================================== */
+
 async function loadVisits() {
 
     try {
 
-        const res = await fetch('/visits');
-        const data = await res.json();
+        const res =
+            await fetch(
+                '/visits'
+            );
 
-        document.getElementById('visits').innerText =
-            "visits: " + data.visits;
+
+        const data =
+            await res.json();
+
+
+        document.getElementById(
+            'visits'
+        ).innerText =
+            "visits: " +
+            data.visits;
+
 
     } catch {}
+
 }
 
 
-// ---------------- AUTO UPDATE ----------------
-setInterval(load, 10000);
-setInterval(loadStats, 30000);
-setInterval(loadRaw, 10000);
-setInterval(loadUsersGraph, 10000);
+/* ========================================================
+   AUTO UPDATE
+======================================================== */
+
+setInterval(
+    load,
+    10000
+);
+
+
+setInterval(
+    loadStats,
+    30000
+);
+
+
+setInterval(
+    loadRaw,
+    10000
+);
+
+
+setInterval(
+    loadUsersGraph,
+    10000
+);
+
+
+setInterval(
+    loadIncidents,
+    30000
+);
+
+
+/* ========================================================
+   INITIAL LOAD
+======================================================== */
 
 loadUsersGraph();
+
 load();
+
 loadStats();
+
 loadRaw();
+
 loadVisits();
+
+loadIncidents();
+
 
 </script>
 
-<!-- footer -->
+
+<!-- ======================================================
+     FOOTER
+======================================================= -->
+
 <div style="
     margin-top:30px;
     text-align:center;
@@ -449,21 +1375,31 @@ loadVisits();
     color:#777;
 ">
 
+
     разработка
 
-    <a href="https://t.me/glluch"
-       target="_blank"
-       style="
+
+    <a
+        href="https://t.me/glluch"
+        target="_blank"
+        style="
             color:#0088cc;
             text-decoration:none;
-       ">
+        "
+    >
+
         @glluch
+
     </a>
+
 
     <br>
 
-    <a href="https://t.me/glluch"
-       target="_blank">
+
+    <a
+        href="https://t.me/glluch"
+        target="_blank"
+    >
 
         <img
             src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/telegram.svg"
@@ -476,7 +1412,10 @@ loadVisits();
 
     </a>
 
+
 </div>
 
+
 </body>
+
 </html>
